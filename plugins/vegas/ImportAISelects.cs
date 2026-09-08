@@ -42,41 +42,19 @@ public class EntryPoint
                 return;
             }
 
-            // Create or reuse AI Selects Video Track
-            Track selectsTrack = null;
+            // Track cache and timeline cursor positions per track
+            Dictionary<string, VideoTrack> tracksByName = new Dictionary<string, VideoTrack>();
+            Dictionary<string, double> trackEndMs = new Dictionary<string, double>();
+
             foreach (Track t in vegas.Project.Tracks)
             {
-                if (t.IsVideo() && t.Name != null && t.Name.Contains("[AI SELECTS]"))
+                if (t.IsVideo() && !string.IsNullOrEmpty(t.Name))
                 {
-                    selectsTrack = t;
-                    break;
+                    tracksByName[t.Name] = t as VideoTrack;
                 }
             }
 
-            if (selectsTrack == null)
-            {
-                selectsTrack = new VideoTrack(vegas.Project.Tracks.Count, "[AI SELECTS] Kiting Action");
-                vegas.Project.Tracks.Add(selectsTrack);
-            }
-
-            double currentMs = 0.0;
             int importedCount = 0;
-
-            // Find current end of track if appending
-            foreach (TrackEvent ev in selectsTrack.Events)
-            {
-                double evEnd = ev.End.ToMilliseconds();
-                if (evEnd > currentMs)
-                {
-                    currentMs = evEnd;
-                }
-            }
-
-            // If track already had clips, add a small gap
-            if (currentMs > 0.0)
-            {
-                currentMs += 1000.0;
-            }
 
             foreach (SelectClip c in clips)
             {
@@ -97,11 +75,14 @@ public class EntryPoint
                     continue;
                 }
 
+                string targetTrackName = !string.IsNullOrEmpty(c.TrackName) ? c.TrackName : "[AI SELECTS] Kiting Action";
+                VideoTrack vt = GetOrCreateTrack(vegas, tracksByName, trackEndMs, targetTrackName);
+
+                double currentMs = trackEndMs[targetTrackName];
                 Timecode start = Timecode.FromMilliseconds(currentMs);
                 Timecode length = Timecode.FromMilliseconds(c.LengthMs);
 
-                VideoTrack vt = selectsTrack as VideoTrack;
-                VideoEvent ev = vt.AddVideoEvent(start, length);
+                TrackEvent ev = vt.AddVideoEvent(start, length);
                 Take take = ev.AddTake(vs);
                 take.Offset = Timecode.FromMilliseconds(c.SourceInMs);
 
@@ -114,12 +95,12 @@ public class EntryPoint
                 }
                 catch {}
 
-                currentMs += c.LengthMs;
+                trackEndMs[targetTrackName] = currentMs + c.LengthMs;
                 importedCount++;
             }
 
             MessageBox.Show(
-                string.Format("Successfully imported {0} AI-scouted action cuts onto '[AI SELECTS] Kiting Action' track!\n\nAll cuts are pre-trimmed to peak motion moments.", importedCount),
+                string.Format("Successfully imported {0} AI-scouted cuts across {1} organized tracks!\n\nAll cuts are pre-trimmed to peak motion moments.", importedCount, tracksByName.Count),
                 "VEGAS AI Selects",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information
@@ -136,6 +117,29 @@ public class EntryPoint
         }
     }
 
+    private VideoTrack GetOrCreateTrack(Vegas vegas, Dictionary<string, VideoTrack> tracksByName, Dictionary<string, double> trackEndMs, string trackName)
+    {
+        if (tracksByName.ContainsKey(trackName))
+        {
+            return tracksByName[trackName];
+        }
+
+        VideoTrack newTrack = new VideoTrack(vegas.Project.Tracks.Count, trackName);
+        vegas.Project.Tracks.Add(newTrack);
+        tracksByName[trackName] = newTrack;
+
+        double endMs = 0.0;
+        foreach (TrackEvent ev in newTrack.Events)
+        {
+            double evEnd = ev.End.ToMilliseconds();
+            if (evEnd > endMs) endMs = evEnd;
+        }
+        if (endMs > 0.0) endMs += 1000.0;
+        trackEndMs[trackName] = endMs;
+
+        return newTrack;
+    }
+
     private List<SelectClip> ParseSelectsJson(string json)
     {
         List<SelectClip> list = new List<SelectClip>();
@@ -148,6 +152,7 @@ public class EntryPoint
             string sourceInStr = ExtractRegex(block, @"""source_in_ms""\s*:\s*([0-9.]+)");
             string lengthStr = ExtractRegex(block, @"""length_ms""\s*:\s*([0-9.]+)");
             string label = ExtractRegex(block, @"""label""\s*:\s*""([^""]*)""");
+            string trackName = ExtractRegex(block, @"""track_name""\s*:\s*""([^""]*)""");
 
             if (!string.IsNullOrEmpty(mediaPath))
             {
@@ -161,6 +166,7 @@ public class EntryPoint
                 sc.SourceInMs = inMs;
                 sc.LengthMs = lenMs;
                 sc.Label = label;
+                sc.TrackName = !string.IsNullOrEmpty(trackName) ? trackName : "[AI SELECTS] Kiting Action";
                 list.Add(sc);
             }
         }
@@ -183,5 +189,6 @@ public class EntryPoint
         public double SourceInMs;
         public double LengthMs;
         public string Label;
+        public string TrackName;
     }
 }

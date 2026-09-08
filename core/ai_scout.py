@@ -156,7 +156,13 @@ def analyze_clip_action(file_path: str, fps_sample: float = 2.0, target_duration
     return segments
 
 
-def scout_directory(directory_path: str, max_workers: int = 4, log_fn=print) -> List[Dict[str, Any]]:
+def scout_directory(
+    directory_path: str,
+    max_workers: int = 4,
+    log_fn=print,
+    track_name: str = "[AI SELECTS] Kiting Action",
+    label_prefix: str = "[ACTION]",
+) -> List[Dict[str, Any]]:
     """Scan a directory for video files and extract peak action selects using parallel workers."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -188,7 +194,8 @@ def scout_directory(directory_path: str, max_workers: int = 4, log_fn=print) -> 
                     "source_in_ms": peak["source_in_ms"],
                     "length_ms": peak["length_ms"],
                     "score": peak["score"],
-                    "label": f"[ACTION] {os.path.splitext(fname)[0]}",
+                    "label": f"{label_prefix} {os.path.splitext(fname)[0]}",
+                    "track_name": track_name,
                 })
             return clip_selects, fname
         except Exception as e:

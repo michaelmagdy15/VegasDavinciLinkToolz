@@ -323,8 +323,20 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
 
     log_fn(f"[INFO] Media Pool items available: {len(clip_map)}")
 
-    # 4. Create timeline
-    timeline_name = f"{project_name} (VEGAS Sync)"
+    # 4. Create timeline (auto-increment version so repeated syncs never conflict)
+    base_name = f"{project_name} (VEGAS Sync)"
+    existing_names = set()
+    for i in range(1, proj.GetTimelineCount() + 1):
+        t = proj.GetTimelineByIndex(i)
+        if t:
+            existing_names.add(t.GetName())
+
+    timeline_name = base_name
+    version = 2
+    while timeline_name in existing_names:
+        timeline_name = f"{base_name} {version}"
+        version += 1
+
     timeline = mp.CreateEmptyTimeline(timeline_name)
     if not timeline:
         log_fn(f"[ERROR] Failed to create timeline '{timeline_name}' in Resolve.")

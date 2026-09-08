@@ -115,7 +115,7 @@ public class EntryPoint
             }
 
             MessageBox.Show(
-                $"Successfully received {clipsImported} cuts from DaVinci Resolve!\nTimeline is synchronized.",
+                string.Format("Successfully received {0} cuts from DaVinci Resolve!\nTimeline is synchronized.", clipsImported),
                 "VEGAS Live Link",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information
@@ -123,7 +123,7 @@ public class EntryPoint
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Live Link Error: {ex.Message}", "VEGAS Live Link Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(string.Format("Live Link Error: {0}", ex.Message), "VEGAS Live Link Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

@@ -1,20 +1,3 @@
-/**
- * SendToResolve.cs — VEGAS Pro C# Scripting Extension
- * 
- * Direct one-click Live Link from VEGAS Pro to DaVinci Resolve Studio.
- * Extracts:
- *   - Video & Audio tracks with names, indexes, Mute, Solo
- *   - Audio track Volumes (dB) and Pan
- *   - Every cut with millisecond timeline start, duration, source In-offset
- *   - Playback rate (clip speed / retime)
- *   - Fade-in and Fade-out lengths
- *   - Timeline Markers and Regions (labels, timecodes)
- * 
- * Install location:
- *   %APPDATA%\VEGAS Pro\2026.0\Script Menu\Send to DaVinci Resolve.cs
- * (Also supports VEGAS Pro 22.0, 23.0, etc.)
- */
-
 using System;
 using System.IO;
 using System.Text;
@@ -31,12 +14,7 @@ public class EntryPoint
         {
             if (vegas.Project == null)
             {
-                MessageBox.Show(
-                    "No active project in VEGAS Pro.\nPlease open a project first.",
-                    "VEGAS ↔ Resolve Live Link",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
-                );
+                MessageBox.Show("No active project in VEGAS Pro.", "VEGAS Live Link", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -55,7 +33,7 @@ public class EntryPoint
             sb.AppendFormat("  \"width\": {0},\n", vegas.Project.Video.Width);
             sb.AppendFormat("  \"height\": {0},\n", vegas.Project.Video.Height);
 
-            // Export Project Markers & Regions
+            // Export Project Markers
             sb.AppendLine("  \"markers\": [");
             List<string> markerJsonList = new List<string>();
             foreach (Marker m in vegas.Project.Markers)
@@ -70,6 +48,7 @@ public class EntryPoint
             sb.AppendLine(string.Join(",\n", markerJsonList.ToArray()));
             sb.AppendLine("  ],");
 
+            // Export Project Regions
             sb.AppendLine("  \"regions\": [");
             List<string> regionJsonList = new List<string>();
             foreach (Region r in vegas.Project.Regions)
@@ -103,7 +82,7 @@ public class EntryPoint
                     if (at != null)
                     {
                         volumeDb = at.Volume;
-                        pan = at.Pan;
+                        pan = at.PanX;
                     }
                 }
 

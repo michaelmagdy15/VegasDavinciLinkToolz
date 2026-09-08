@@ -188,7 +188,7 @@ class TimelineBridgeApp:
 
         self.remap_src_entry = StyledEntry(
             src_row,
-            placeholder=r"e.g.  C:\OldProjects\  or  D:\Footage\"
+            placeholder="e.g.  C:/OldProjects/  or  D:/Footage/"
         )
         self.remap_src_entry.pack(side="left", fill="x", expand=True, ipady=5, padx=(6, 0))
 
@@ -208,7 +208,7 @@ class TimelineBridgeApp:
 
         self.remap_dst_entry = StyledEntry(
             dst_row,
-            placeholder=r"e.g.  E:\Media\  or  D:\NewFootage\"
+            placeholder="e.g.  E:/Media/  or  D:/NewFootage/"
         )
         self.remap_dst_entry.pack(side="left", fill="x", expand=True, ipady=5, padx=(6, 0))
 

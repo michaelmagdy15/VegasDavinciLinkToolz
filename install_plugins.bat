@@ -10,6 +10,7 @@ echo.
 set SCRIPT_DIR=%~dp0
 set VEGAS_SEND_CS=%SCRIPT_DIR%plugins\vegas\SendToResolve.cs
 set VEGAS_RECV_CS=%SCRIPT_DIR%plugins\vegas\ReceiveFromResolve.cs
+set VEGAS_AI_CS=%SCRIPT_DIR%plugins\vegas\ImportAISelects.cs
 set RESOLVE_IMP_PY=%SCRIPT_DIR%plugins\resolve\ImportFromVegas.py
 set RESOLVE_EXP_PY=%SCRIPT_DIR%plugins\resolve\ExportToVegas.py
 
@@ -23,17 +24,20 @@ for %%V in (2026.0 23.0 22.0 21.0 20.0 19.0 18.0 17.0 16.0 15.0 14.0) do (
         if not exist "!TARGET_DIR!" mkdir "!TARGET_DIR!"
         copy /Y "%VEGAS_SEND_CS%" "!TARGET_DIR!\Send to DaVinci Resolve.cs" >nul 2>&1
         copy /Y "%VEGAS_RECV_CS%" "!TARGET_DIR!\Receive from DaVinci Resolve.cs" >nul 2>&1
+        copy /Y "%VEGAS_AI_CS%" "!TARGET_DIR!\Import AI Selects.cs" >nul 2>&1
         if !ERRORLEVEL! equ 0 (
             echo   [OK] Installed to VEGAS Pro %%V ^(AppData Script Menu^)
             set /a VEGAS_COUNT+=1
         )
     )
+
     :: Also check Program Files installation
     set PROG_DIR=%PROGRAMFILES%\VEGAS\VEGAS Pro %%V\Script Menu
     if exist "%PROGRAMFILES%\VEGAS\VEGAS Pro %%V" (
         if not exist "!PROG_DIR!" mkdir "!PROG_DIR!" >nul 2>&1
         copy /Y "%VEGAS_SEND_CS%" "!PROG_DIR!\Send to DaVinci Resolve.cs" >nul 2>&1
         copy /Y "%VEGAS_RECV_CS%" "!PROG_DIR!\Receive from DaVinci Resolve.cs" >nul 2>&1
+        copy /Y "%VEGAS_AI_CS%" "!PROG_DIR!\Import AI Selects.cs" >nul 2>&1
         if !ERRORLEVEL! equ 0 (
             echo   [OK] Installed to VEGAS Pro %%V ^(Program Files Script Menu^)
             set /a VEGAS_COUNT+=1
@@ -46,6 +50,7 @@ if %VEGAS_COUNT% equ 0 (
     mkdir "!TARGET_DIR!" >nul 2>&1
     copy /Y "%VEGAS_SEND_CS%" "!TARGET_DIR!\Send to DaVinci Resolve.cs" >nul 2>&1
     copy /Y "%VEGAS_RECV_CS%" "!TARGET_DIR!\Receive from DaVinci Resolve.cs" >nul 2>&1
+    copy /Y "%VEGAS_AI_CS%" "!TARGET_DIR!\Import AI Selects.cs" >nul 2>&1
     echo   [OK] Installed to VEGAS Pro 2026.0
 )
 

@@ -27,11 +27,56 @@ Going the other way is just as bad — Resolve exports `file://localhost/` URIs 
 
 ## ✅ The Solution
 
-**Timeline Bridge** provides two ways to synchronize your projects:
-1. **⚡ Direct Live Link (No XML Needed)**: Direct in-app plugins for VEGAS Pro and DaVinci Resolve that stream cuts, tracks, and media bidirectionally with one click.
-2. **📁 XML Sanitizer**: Drop in your exported XML, hit Convert, and get a clean file that imports into either NLE without media offline or timecode errors.
+**Timeline Bridge** provides complete synchronization and AI-assisted editorial workflows between VEGAS Pro and DaVinci Resolve:
+1. **⚡ Direct Live Link (No XML Needed)**: In-app plugins for VEGAS Pro and DaVinci Resolve that stream cuts, tracks, and media bidirectionally with one click.
+2. **🤖 Official Model Context Protocol (MCP) Server**: Connects LLMs (Claude Desktop, Antigravity, Cursor) directly to VEGAS Pro and DaVinci Resolve to inspect timelines, trigger syncs, and scout footage using AI.
+3. **🏄 AI Visual & Motion Action Scout**: Scans hours of raw/proxy footage using hardware-accelerated frame analysis to isolate peak action moments (jumps, kiteloops, water spray, carves) and drops them pre-trimmed onto your VEGAS timeline as an `[AI SELECTS]` track with markers.
+4. **📁 XML Sanitizer**: Drop in your exported XML, hit Convert, and get a clean Final Cut Pro XML v4/v5 that imports into either NLE without media offline or timecode errors.
 
-**Zero dependencies. Zero cost. Zero internet required.**
+**Zero paid dependencies. Zero telemetry. Works 100% offline.**
+
+---
+
+## 🤖 VEGAS Pro & DaVinci Resolve MCP Server
+
+The first open-source Model Context Protocol server enabling AI assistants (such as Claude Desktop, Cursor, and Antigravity) to understand and control professional NLE editing workflows.
+
+### Claude Desktop Setup
+Add this to your `claude_desktop_config.json` (located at `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "vegas-resolve": {
+      "command": "python",
+      "args": [
+        "C:\\Users\\Mi5a\\VegasDavinciLinkTool\\run_mcp.py"
+      ]
+    }
+  }
+}
+```
+
+### Available MCP Tools:
+| Tool Name | Description |
+| :--- | :--- |
+| `vegas_get_timeline_info` | Reads track hierarchy, clip counts, markers, frame rate, and dimensions from VEGAS Pro. |
+| `vegas_scout_footage` | Scans raw/proxy footage directories using motion analysis to detect peak action moments. |
+| `vegas_get_selects_manifest` | Inspects pre-trimmed AI action selects with start/duration timestamps. |
+| `vegas_sync_to_resolve` | Executes live background sync of active VEGAS project into DaVinci Resolve Studio. |
+| `resolve_sync_to_vegas` | Exports active DaVinci Resolve Studio timeline for import into VEGAS Pro. |
+| `resolve_get_project_info` | Checks DaVinci Resolve connection status, active project, and active timeline name. |
+
+---
+
+## 🏄 AI Visual & Motion Action Scout
+
+Tired of scrubbing through hundreds of gigabytes of raw drone and camera footage to find 3-second action highlights?
+
+1. **Hardware-Accelerated Frame Sampling**: Scans clips using parallel FFmpeg workers and keyframe decoding (10x–20x faster than real-time playback).
+2. **Peak Motion Delta Detection**: Computes motion energy gradients to pinpoint exact jumps, kiteloops, speed bursts, and spray turns.
+3. **Pacing-Matched Selects**: Automatically pre-trims each peak to 1.5s–3.0s matching fast-paced action promo pacing.
+4. **1-Click VEGAS Pro Import**: Run **Tools → Scripting → Import AI Selects** in VEGAS Pro to instantly build an `[AI SELECTS] Kiting Action` track above your rough cut with labeled markers!
 
 ---
 
@@ -41,7 +86,7 @@ Connects **VEGAS Pro** (2026.0, 23.0, 22.0, 21.0) and **DaVinci Resolve Studio**
 
 ### 1-Minute Setup
 Double-click `install_plugins.bat` to automatically install the plugins:
-- **VEGAS Pro**: Adds `Send to DaVinci Resolve` and `Receive from DaVinci Resolve` to the `Tools → Scripting` menu.
+- **VEGAS Pro**: Adds `Send to DaVinci Resolve`, `Receive from DaVinci Resolve`, and `Import AI Selects` to the `Tools → Scripting` menu.
 - **DaVinci Resolve**: Adds `ImportFromVegas` and `ExportToVegas` to the `Workspace → Scripts` menu.
 
 ---

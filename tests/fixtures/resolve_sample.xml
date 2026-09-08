@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<!--
+  resolve_sample.xml — Simulated DaVinci Resolve Studio 21 XMEML export.
+
+  Clean structure with:
+    1. All paths as file://localhost/ URIs with proper encoding
+    2. Standard FCP7 effects only (Opacity, Audio Levels)
+    3. Consistent <rate> on every element
+    4. Proper <link> tags for A/V sync
+-->
+<xmeml version="5">
+  <project>
+    <name>Color Grade Project</name>
+    <children>
+      <sequence>
+        <name>Graded Timeline</name>
+        <duration>9000</duration>
+        <rate>
+          <timebase>24</timebase>
+          <ntsc>FALSE</ntsc>
+        </rate>
+        <timecode>
+          <rate>
+            <timebase>24</timebase>
+            <ntsc>FALSE</ntsc>
+          </rate>
+          <string>01:00:00:00</string>
+          <frame>86400</frame>
+          <displayformat>NDF</displayformat>
+        </timecode>
+        <media>
+          <video>
+            <format>
+              <samplecharacteristics>
+                <width>3840</width>
+                <height>2160</height>
+              </samplecharacteristics>
+            </format>
+            <track>
+              <clipitem id="resolve-clip-001">
+                <name>Interview A-Cam</name>
+                <duration>4500</duration>
+                <rate>
+                  <timebase>24</timebase>
+                  <ntsc>FALSE</ntsc>
+                </rate>
+                <start>0</start>
+                <end>4500</end>
+                <in>0</in>
+                <out>4500</out>
+                <file id="resolve-file-001">
+                  <name>Interview A-Cam.mp4</name>
+                  <pathurl>file://localhost/D:/Resolve%20Projects/Interview%20A-Cam.mp4</pathurl>
+                  <media>
+                    <video>
+                      <duration>9000</duration>
+                    </video>
+                  </media>
+                </file>
+                <filter>
+                  <effect>
+                    <name>Opacity</name>
+                    <effectid>opacity</effectid>
+                    <parameter>
+                      <name>Opacity</name>
+                      <value>100</value>
+                    </parameter>
+                  </effect>
+                </filter>
+                <link>
+                  <linkclipref>resolve-clip-001-audio</linkclipref>
+                  <mediatype>audio</mediatype>
+                  <trackindex>1</trackindex>
+                  <clipindex>1</clipindex>
+                </link>
+              </clipitem>
+
+              <clipitem id="resolve-clip-002">
+                <name>B-Roll City</name>
+                <duration>4500</duration>
+                <rate>
+                  <timebase>24</timebase>
+                  <ntsc>FALSE</ntsc>
+                </rate>
+                <start>4500</start>
+                <end>9000</end>
+                <in>600</in>
+                <out>5100</out>
+                <file id="resolve-file-002">
+                  <name>B-Roll City (4K).mp4</name>
+                  <pathurl>file://localhost/D:/Resolve%20Projects/B-Roll%20City%20%284K%29.mp4</pathurl>
+                  <media>
+                    <video>
+                      <duration>18000</duration>
+                    </video>
+                  </media>
+                </file>
+                <link>
+                  <linkclipref>resolve-clip-002-audio</linkclipref>
+                  <mediatype>audio</mediatype>
+                  <trackindex>1</trackindex>
+                  <clipindex>2</clipindex>
+                </link>
+              </clipitem>
+            </track>
+          </video>
+
+          <audio>
+            <track>
+              <clipitem id="resolve-clip-001-audio">
+                <name>Interview A-Cam</name>
+                <duration>4500</duration>
+                <rate>
+                  <timebase>24</timebase>
+                  <ntsc>FALSE</ntsc>
+                </rate>
+                <start>0</start>
+                <end>4500</end>
+                <in>0</in>
+                <out>4500</out>
+                <file id="resolve-file-001"/>
+                <filter>
+                  <effect>
+                    <name>Audio Levels</name>
+                    <effectid>audiolevels</effectid>
+                    <parameter>
+                      <name>Level</name>
+                      <value>0</value>
+                    </parameter>
+                  </effect>
+                </filter>
+                <link>
+                  <linkclipref>resolve-clip-001</linkclipref>
+                  <mediatype>video</mediatype>
+                  <trackindex>1</trackindex>
+                  <clipindex>1</clipindex>
+                </link>
+              </clipitem>
+
+              <clipitem id="resolve-clip-002-audio">
+                <name>B-Roll City</name>
+                <duration>4500</duration>
+                <rate>
+                  <timebase>24</timebase>
+                  <ntsc>FALSE</ntsc>
+                </rate>
+                <start>4500</start>
+                <end>9000</end>
+                <in>600</in>
+                <out>5100</out>
+                <file id="resolve-file-002"/>
+                <link>
+                  <linkclipref>resolve-clip-002</linkclipref>
+                  <mediatype>video</mediatype>
+                  <trackindex>1</trackindex>
+                  <clipindex>2</clipindex>
+                </link>
+              </clipitem>
+            </track>
+          </audio>
+        </media>
+      </sequence>
+    </children>
+  </project>
+</xmeml>

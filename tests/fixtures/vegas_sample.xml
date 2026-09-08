@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<!--
+  vegas_sample.xml — Simulated VEGAS Pro 2026 XMEML export.
+
+  Intentional issues for testing:
+    1. <pathurl> uses absolute Windows backslash paths (no file:// URI)
+    2. Contains VEGAS-proprietary <filter> and <effect> blocks
+    3. Some clipitems are missing <rate> elements
+    4. Includes an empty track
+    5. Has spaces and special characters in filenames
+-->
+<xmeml version="5">
+  <project>
+    <name>Wedding Edit 2026</name>
+    <children>
+      <sequence>
+        <name>Main Timeline</name>
+        <duration>18000</duration>
+        <rate>
+          <timebase>24</timebase>
+          <ntsc>FALSE</ntsc>
+        </rate>
+        <timecode>
+          <rate>
+            <timebase>24</timebase>
+            <ntsc>FALSE</ntsc>
+          </rate>
+          <string>01:00:00:00</string>
+          <frame>86400</frame>
+          <displayformat>NDF</displayformat>
+        </timecode>
+        <media>
+          <!-- ====== VIDEO TRACKS ====== -->
+          <video>
+            <format>
+              <samplecharacteristics>
+                <width>3840</width>
+                <height>2160</height>
+              </samplecharacteristics>
+            </format>
+
+            <!-- Track V1: Main cuts -->
+            <track>
+              <clipitem id="clip-001">
+                <name>Ceremony Wide</name>
+                <duration>3600</duration>
+                <rate>
+                  <timebase>24</timebase>
+                  <ntsc>FALSE</ntsc>
+                </rate>
+                <start>0</start>
+                <end>3600</end>
+                <in>0</in>
+                <out>3600</out>
+                <file id="file-001">
+                  <name>Ceremony Wide.mp4</name>
+                  <pathurl>D:\Projects\Wedding 2026\Footage\Ceremony Wide.mp4</pathurl>
+                  <media>
+                    <video>
+                      <duration>7200</duration>
+                    </video>
+                  </media>
+                </file>
+                <!-- VEGAS proprietary: Track Motion effect — should be stripped -->
+                <filter>
+                  <effect>
+                    <name>Vegas Track Motion</name>
+                    <effectid>trackmotion</effectid>
+                  </effect>
+                </filter>
+                <!-- Standard: Opacity — should be KEPT -->
+                <filter>
+                  <effect>
+                    <name>Opacity</name>
+                    <effectid>opacity</effectid>
+                    <parameter>
+                      <name>Opacity</name>
+                      <value>100</value>
+                    </parameter>
+                  </effect>
+                </filter>
+                <link>
+                  <linkclipref>clip-001-audio</linkclipref>
+                  <mediatype>audio</mediatype>
+                  <trackindex>1</trackindex>
+                  <clipindex>1</clipindex>
+                </link>
+              </clipitem>
+
+              <clipitem id="clip-002">
+                <name>Vows Close Up</name>
+                <duration>2400</duration>
+                <!-- Missing <rate> — should be injected by normalizer -->
+                <start>3600</start>
+                <end>6000</end>
+                <in>120</in>
+                <out>2520</out>
+                <file id="file-002">
+                  <name>Vows Close Up (Take 3).mp4</name>
+                  <pathurl>D:\Projects\Wedding 2026\Footage\Vows Close Up (Take 3).mp4</pathurl>
+                  <media>
+                    <video>
+                      <duration>4800</duration>
+                    </video>
+                  </media>
+                </file>
+                <!-- VEGAS proprietary: Pan/Crop — should be stripped -->
+                <effect>
+                  <name>Vegas Pan/Crop</name>
+                  <effectid>pancrop</effectid>
+                </effect>
+                <link>
+                  <linkclipref>clip-002-audio</linkclipref>
+                  <mediatype>audio</mediatype>
+                  <trackindex>1</trackindex>
+                  <clipindex>2</clipindex>
+                </link>
+              </clipitem>
+            </track>
+
+            <!-- Track V2: B-roll overlay -->
+            <track>
+              <clipitem id="clip-003">
+                <name>Ring Detail</name>
+                <duration>1200</duration>
+                <rate>
+                  <timebase>30</timebase>
+                  <ntsc>FALSE</ntsc>
+                </rate>
+                <start>1800</start>
+                <end>3000</end>
+                <in>0</in>
+                <out>1200</out>
+                <file id="file-003">
+                  <name>Ring Detail.mp4</name>
+                  <pathurl>E:\B-Roll\Ring Detail.mp4</pathurl>
+                  <media>
+                    <video>
+                      <duration>1800</duration>
+                    </video>
+                  </media>
+                </file>
+                <!-- VEGAS proprietary: Video FX — should be stripped -->
+                <filter>
+                  <effect>
+                    <name>MAGIX Video FX</name>
+                    <effectid>magix video fx</effectid>
+                  </effect>
+                </filter>
+                <!-- Standard: Cross Dissolve transition — should be KEPT -->
+                <filter>
+                  <effect>
+                    <name>Cross Dissolve</name>
+                    <effectid>cross dissolve</effectid>
+                  </effect>
+                </filter>
+              </clipitem>
+            </track>
+
+            <!-- Track V3: EMPTY — should be removed by cleaner -->
+            <track>
+            </track>
+
+          </video>
+
+          <!-- ====== AUDIO TRACKS ====== -->
+          <audio>
+            <track>
+              <clipitem id="clip-001-audio">
+                <name>Ceremony Wide</name>
+                <duration>3600</duration>
+                <rate>
+                  <timebase>24</timebase>
+                  <ntsc>FALSE</ntsc>
+                </rate>
+                <start>0</start>
+                <end>3600</end>
+                <in>0</in>
+                <out>3600</out>
+                <file id="file-001"/>
+                <!-- Standard: Audio Levels — should be KEPT -->
+                <filter>
+                  <effect>
+                    <name>Audio Levels</name>
+                    <effectid>audiolevels</effectid>
+                    <parameter>
+                      <name>Level</name>
+                      <value>0</value>
+                    </parameter>
+                  </effect>
+                </filter>
+                <!-- VEGAS proprietary: Audio FX — should be stripped -->
+                <filter>
+                  <effect>
+                    <name>Sony Audio FX</name>
+                    <effectid>sony audio fx</effectid>
+                  </effect>
+                </filter>
+                <link>
+                  <linkclipref>clip-001</linkclipref>
+                  <mediatype>video</mediatype>
+                  <trackindex>1</trackindex>
+                  <clipindex>1</clipindex>
+                </link>
+              </clipitem>
+
+              <clipitem id="clip-002-audio">
+                <name>Vows Close Up</name>
+                <duration>2400</duration>
+                <start>3600</start>
+                <end>6000</end>
+                <in>120</in>
+                <out>2520</out>
+                <file id="file-002"/>
+                <link>
+                  <linkclipref>clip-002</linkclipref>
+                  <mediatype>video</mediatype>
+                  <trackindex>1</trackindex>
+                  <clipindex>2</clipindex>
+                </link>
+              </clipitem>
+            </track>
+
+            <!-- Audio Track 2: EMPTY — should be removed -->
+            <track>
+            </track>
+          </audio>
+
+        </media>
+      </sequence>
+    </children>
+  </project>
+</xmeml>

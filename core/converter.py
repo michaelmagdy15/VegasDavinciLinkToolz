@@ -155,34 +155,39 @@ def convert_vegas_to_resolve(
         result.total_pathurls_found += 1
         original = pathurl.text.strip()
 
-        # Apply prefix remapping first (before URI conversion)
-        current = original
-        if remap_src and remap_dst:
-            remapped = remap_path_prefix(
-                normalize_separators(current), remap_src, remap_dst
-            )
-            if remapped != normalize_separators(current):
-                current = remapped
-                result.paths_remapped += 1
-                log_fn("info", f"  Remapped: {original} → {current}")
-
-        # Convert to file URI if needed
-        if needs_conversion_to_uri(current):
-            converted = windows_path_to_file_uri(current)
-            pathurl.text = converted
-            result.paths_converted += 1
-            log_fn("info", f"  Converted: {current} → {converted}")
-        elif is_file_uri(current):
-            # Already a valid URI — but might need re-encoding
-            # Normalize it through our pipeline for consistency
-            pathurl.text = current
-            result.paths_already_correct += 1
+        # Step A: Normalize to clean path first
+        if is_file_uri(original):
+            clean_path = file_uri_to_windows_path(original)
         else:
-            # Relative path or unknown format — convert anyway
-            converted = windows_path_to_file_uri(current)
-            pathurl.text = converted
+            clean_path = original
+
+        # Step B: Apply prefix/path remapping
+        remapped_path = clean_path
+        if remap_src and remap_dst:
+            norm_clean = normalize_separators(clean_path)
+            norm_src = normalize_separators(remap_src)
+            norm_dst = normalize_separators(remap_dst)
+
+            remapped = remap_path_prefix(norm_clean, norm_src, norm_dst)
+            if remapped == norm_clean and norm_src in norm_clean:
+                remapped = norm_clean.replace(norm_src, norm_dst)
+
+            if remapped != norm_clean:
+                remapped_path = remapped
+                result.paths_remapped += 1
+                log_fn("info", f"  Remapped: {clean_path} → {remapped_path}")
+
+        # Step C: Convert to Resolve-compatible file:// URI with URL encoding
+        final_uri = windows_path_to_file_uri(remapped_path)
+
+        if final_uri != original:
+            pathurl.text = final_uri
             result.paths_converted += 1
-            log_fn("warning", f"  Non-standard path converted: {current} → {converted}")
+            if result.paths_remapped == 0 or remapped_path == clean_path:
+                log_fn("info", f"  Converted: {original} → {final_uri}")
+        else:
+            pathurl.text = original
+            result.paths_already_correct += 1
 
     log_fn("success",
            f"Paths: {result.paths_converted} converted, "
@@ -288,14 +293,17 @@ def convert_resolve_to_vegas(
         if needs_conversion_to_windows(original):
             win_path = file_uri_to_windows_path(original)
 
-            # Apply prefix remapping
+            # Apply prefix/path remapping
             if remap_src and remap_dst:
-                remapped = remap_path_prefix(
-                    normalize_separators(win_path),
-                    normalize_separators(remap_src),
-                    normalize_separators(remap_dst),
-                )
-                if remapped != normalize_separators(win_path):
+                norm_win = normalize_separators(win_path)
+                norm_src = normalize_separators(remap_src)
+                norm_dst = normalize_separators(remap_dst)
+
+                remapped = remap_path_prefix(norm_win, norm_src, norm_dst)
+                if remapped == norm_win and norm_src in norm_win:
+                    remapped = norm_win.replace(norm_src, norm_dst)
+
+                if remapped != norm_win:
                     win_path = remapped.replace("/", "\\")
                     result.paths_remapped += 1
                     log_fn("info", f"  Remapped: {original} → {win_path}")

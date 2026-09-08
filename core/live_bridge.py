@@ -367,9 +367,14 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
             except Exception:
                 clip_fps = fps
 
-            # Source frames in/out must use the source clip's native FPS
+            # Check playback rate (speed/retime)
+            playback_rate = clip.get("playback_rate", 1.0)
+            if playback_rate <= 0:
+                playback_rate = 1.0
+
+            # Source frames in/out must use the source clip's native FPS scaled by playback rate
             in_frame = int(round((in_ms / 1000.0) * clip_fps))
-            duration_src_frames = int(round((len_ms / 1000.0) * clip_fps))
+            duration_src_frames = int(round((len_ms / 1000.0) * clip_fps * playback_rate))
             out_frame = in_frame + duration_src_frames
 
             # Timeline recordFrame uses sequence FPS and timeline StartFrame offset
@@ -386,10 +391,46 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
             }
 
             try:
-                if mp.AppendToTimeline([clip_info]):
+                res = mp.AppendToTimeline([clip_info])
+                if res:
                     clips_added += 1
             except Exception:
                 pass
+
+        # Apply track mute state
+        if track.get("mute", False):
+            try:
+                track_type = "video" if is_video else "audio"
+                timeline.SetTrackEnable(track_type, track_idx, False)
+            except Exception:
+                pass
+
+    # 6. Inject Timeline Markers & Regions
+    markers_added = 0
+    for m in data.get("markers", []):
+        lbl = m.get("label", "VEGAS Marker")
+        pos_ms = m.get("position_ms", 0.0)
+        marker_frame = tl_start + int(round((pos_ms / 1000.0) * fps))
+        try:
+            if timeline.AddMarker(marker_frame, "Cyan", lbl, "", 1):
+                markers_added += 1
+        except Exception:
+            pass
+
+    for r in data.get("regions", []):
+        lbl = r.get("label", "VEGAS Region")
+        pos_ms = r.get("position_ms", 0.0)
+        len_ms = r.get("length_ms", 0.0)
+        start_frame = tl_start + int(round((pos_ms / 1000.0) * fps))
+        dur_frames = max(1, int(round((len_ms / 1000.0) * fps)))
+        try:
+            if timeline.AddMarker(start_frame, "Yellow", lbl, "", dur_frames):
+                markers_added += 1
+        except Exception:
+            pass
+
+    if markers_added > 0:
+        log_fn(f"[OK] Synced {markers_added} timeline markers and regions!")
 
     log_fn(f"[OK] Timeline built with {clips_added} cuts synchronized live (zero gap aligned)!")
     return True

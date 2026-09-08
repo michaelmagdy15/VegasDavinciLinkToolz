@@ -55,6 +55,7 @@ if %ERRORLEVEL% equ 0 (
 set BRIDGE_DIR=%USERPROFILE%\.timeline_bridge
 if not exist "%BRIDGE_DIR%" mkdir "%BRIDGE_DIR%"
 copy /Y "%SCRIPT_DIR%core\live_bridge.py" "%BRIDGE_DIR%\live_bridge.py" >nul 2>&1
+copy /Y "%SCRIPT_DIR%plugins\resolve\run_live_sync.py" "%BRIDGE_DIR%\run_live_sync.py" >nul 2>&1
 
 echo.
 echo ====================================================================

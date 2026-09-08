@@ -1,3 +1,20 @@
+/**
+ * SendToResolve.cs — VEGAS Pro C# Scripting Extension
+ * 
+ * Direct one-click Live Link from VEGAS Pro to DaVinci Resolve Studio.
+ * Extracts:
+ *   - Video & Audio tracks with names, indexes, Mute, Solo
+ *   - Audio track Volumes (dB) and Pan
+ *   - Every cut with millisecond timeline start, duration, source In-offset
+ *   - Playback rate (clip speed / retime)
+ *   - Fade-in and Fade-out lengths
+ *   - Timeline Markers and Regions (labels, timecodes)
+ * 
+ * Install location:
+ *   %APPDATA%\VEGAS Pro\2026.0\Script Menu\Send to DaVinci Resolve.cs
+ * (Also supports VEGAS Pro 22.0, 23.0, etc.)
+ */
+
 using System;
 using System.IO;
 using System.Text;
@@ -16,7 +33,7 @@ public class EntryPoint
             {
                 MessageBox.Show(
                     "No active project in VEGAS Pro.\nPlease open a project first.",
-                    "VEGAS ↔ Resolve Live Bridge",
+                    "VEGAS ↔ Resolve Live Link",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning
                 );
@@ -37,18 +54,69 @@ public class EntryPoint
             sb.AppendFormat("  \"frame_rate\": {0:F4},\n", vegas.Project.Video.FrameRate);
             sb.AppendFormat("  \"width\": {0},\n", vegas.Project.Video.Width);
             sb.AppendFormat("  \"height\": {0},\n", vegas.Project.Video.Height);
-            sb.AppendLine("  \"tracks\": [");
 
+            // Export Project Markers & Regions
+            sb.AppendLine("  \"markers\": [");
+            List<string> markerJsonList = new List<string>();
+            foreach (Marker m in vegas.Project.Markers)
+            {
+                StringBuilder mb = new StringBuilder();
+                mb.AppendLine("    {");
+                mb.AppendFormat("      \"label\": \"{0}\",\n", EscapeJson(m.Label ?? ""));
+                mb.AppendFormat("      \"position_ms\": {0:F2}\n", m.Position.ToMilliseconds());
+                mb.Append("    }");
+                markerJsonList.Add(mb.ToString());
+            }
+            sb.AppendLine(string.Join(",\n", markerJsonList.ToArray()));
+            sb.AppendLine("  ],");
+
+            sb.AppendLine("  \"regions\": [");
+            List<string> regionJsonList = new List<string>();
+            foreach (Region r in vegas.Project.Regions)
+            {
+                StringBuilder rb = new StringBuilder();
+                rb.AppendLine("    {");
+                rb.AppendFormat("      \"label\": \"{0}\",\n", EscapeJson(r.Label ?? ""));
+                rb.AppendFormat("      \"position_ms\": {0:F2},\n", r.Position.ToMilliseconds());
+                rb.AppendFormat("      \"length_ms\": {0:F2}\n", r.Length.ToMilliseconds());
+                rb.Append("    }");
+                regionJsonList.Add(rb.ToString());
+            }
+            sb.AppendLine(string.Join(",\n", regionJsonList.ToArray()));
+            sb.AppendLine("  ],");
+
+            // Export Tracks
+            sb.AppendLine("  \"tracks\": [");
             List<string> trackJsonList = new List<string>();
 
             foreach (Track track in vegas.Project.Tracks)
             {
+                bool isVideo = track.IsVideo();
+                bool isAudio = track.IsAudio();
+
+                float volumeDb = 0f;
+                float pan = 0f;
+
+                if (isAudio)
+                {
+                    AudioTrack at = track as AudioTrack;
+                    if (at != null)
+                    {
+                        volumeDb = at.Volume;
+                        pan = at.Pan;
+                    }
+                }
+
                 StringBuilder tb = new StringBuilder();
                 tb.AppendLine("    {");
-                tb.AppendFormat("      \"name\": \"{0}\",\n", EscapeJson(track.Name ?? ""));
+                tb.AppendFormat("      \"name\": \"{0}\",\n", EscapeJson(track.Name ?? (isVideo ? "Video Track" : "Audio Track")));
                 tb.AppendFormat("      \"index\": {0},\n", track.Index);
-                tb.AppendFormat("      \"is_video\": {0},\n", track.IsVideo() ? "true" : "false");
-                tb.AppendFormat("      \"is_audio\": {0},\n", track.IsAudio() ? "true" : "false");
+                tb.AppendFormat("      \"is_video\": {0},\n", isVideo ? "true" : "false");
+                tb.AppendFormat("      \"is_audio\": {0},\n", isAudio ? "true" : "false");
+                tb.AppendFormat("      \"mute\": {0},\n", track.Mute ? "true" : "false");
+                tb.AppendFormat("      \"solo\": {0},\n", track.Solo ? "true" : "false");
+                tb.AppendFormat("      \"volume_db\": {0:F2},\n", volumeDb);
+                tb.AppendFormat("      \"pan\": {0:F2},\n", pan);
                 tb.AppendLine("      \"clips\": [");
 
                 List<string> clipJsonList = new List<string>();
@@ -70,13 +138,21 @@ public class EntryPoint
                         inOffsetMs = take.Offset.ToMilliseconds();
                     }
 
+                    double fadeInMs = ev.FadeIn != null ? ev.FadeIn.Length.ToMilliseconds() : 0.0;
+                    double fadeOutMs = ev.FadeOut != null ? ev.FadeOut.Length.ToMilliseconds() : 0.0;
+                    double playbackRate = ev.PlaybackRate;
+
                     StringBuilder cb = new StringBuilder();
                     cb.AppendLine("        {");
                     cb.AppendFormat("          \"name\": \"{0}\",\n", EscapeJson(clipName));
                     cb.AppendFormat("          \"media_path\": \"{0}\",\n", EscapeJson(mediaPath));
                     cb.AppendFormat("          \"timeline_start_ms\": {0:F2},\n", ev.Start.ToMilliseconds());
                     cb.AppendFormat("          \"timeline_length_ms\": {0:F2},\n", ev.Length.ToMilliseconds());
-                    cb.AppendFormat("          \"source_in_ms\": {0:F2}\n", inOffsetMs);
+                    cb.AppendFormat("          \"source_in_ms\": {0:F2},\n", inOffsetMs);
+                    cb.AppendFormat("          \"fade_in_ms\": {0:F2},\n", fadeInMs);
+                    cb.AppendFormat("          \"fade_out_ms\": {0:F2},\n", fadeOutMs);
+                    cb.AppendFormat("          \"playback_rate\": {0:F3},\n", playbackRate);
+                    cb.AppendFormat("          \"mute\": {0}\n", ev.Mute ? "true" : "false");
                     cb.Append("        }");
                     clipJsonList.Add(cb.ToString());
                 }
@@ -93,47 +169,38 @@ public class EntryPoint
 
             File.WriteAllText(jsonPath, sb.ToString(), Encoding.UTF8);
 
-            // Execute Python live bridge if available
-            string scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bridge_receiver.py");
-            if (!File.Exists(scriptPath))
-            {
-                scriptPath = Path.Combine(bridgeDir, "import_from_vegas.py");
-            }
+            // Execute Python Live Bridge runner
+            string runnerPath = Path.Combine(bridgeDir, "run_live_sync.py");
+            bool triggered = false;
 
-            bool executed = false;
-            if (File.Exists(scriptPath))
+            if (File.Exists(runnerPath))
             {
                 try
                 {
                     ProcessStartInfo psi = new ProcessStartInfo
                     {
                         FileName = "python",
-                        Arguments = string.Format("\"{0}\" \"{1}\"", scriptPath, jsonPath),
+                        Arguments = string.Format("\"{0}\" \"{1}\"", runnerPath, jsonPath),
                         UseShellExecute = false,
                         CreateNoWindow = true
                     };
                     Process.Start(psi);
-                    executed = true;
+                    triggered = true;
                 }
                 catch {}
             }
 
-            string msg = executed
-                ? "Timeline extracted and sent live to DaVinci Resolve!"
-                : "Timeline extracted successfully!\nSaved to: " + jsonPath + "\n\nIn DaVinci Resolve, run 'Import from VEGAS' to load it.";
+            string successMsg = triggered
+                ? "Timeline sent to DaVinci Resolve!\nDaVinci Resolve is automatically creating and updating your timeline with zero gaps."
+                : "Timeline manifest saved!\nPlease run 'ImportFromVegas' in DaVinci Resolve (Workspace > Scripts).";
 
-            MessageBox.Show(
-                msg,
-                "VEGAS ↔ Resolve Live Bridge",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information
-            );
+            MessageBox.Show(successMsg, "VEGAS ↔ Resolve Live Link", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
             MessageBox.Show(
-                "Error sending timeline to DaVinci Resolve:\n" + ex.Message,
-                "VEGAS ↔ Resolve Live Bridge Error",
+                string.Format("Live Link Error: {0}\n\nStack: {1}", ex.Message, ex.StackTrace),
+                "Live Link Error",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error
             );
@@ -143,6 +210,6 @@ public class EntryPoint
     private string EscapeJson(string s)
     {
         if (string.IsNullOrEmpty(s)) return "";
-        return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
+        return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", " ");
     }
 }

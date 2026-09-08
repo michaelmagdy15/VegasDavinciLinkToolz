@@ -109,11 +109,21 @@ cd VegasDavinciLinkToolz
 
 ### Step 3: Launch the App
 
+**On Windows:**
+- Simply double-click **`launch.bat`** in the folder!
+- *Bonus:* You can even **drag and drop** your XML file directly onto `launch.bat` to launch with it preloaded.
+
+**On macOS / Linux:**
+```bash
+./launch.sh
+```
+
+**Or via Terminal / Command Prompt:**
 ```bash
 python main.py
 ```
 
-> **Note for macOS/Linux users:** If `python` doesn't work, try `python3 main.py` instead.
+> **Note for macOS/Linux users:** If `python` doesn't work, try `python3 main.py` or `./launch.sh` instead.
 
 That's it — the GUI opens and you're ready to convert. No `pip install`, no virtual environments, no setup wizards.
 
@@ -121,13 +131,26 @@ That's it — the GUI opens and you're ready to convert. No `pip install`, no vi
 
 ## 🚀 Quick Start (TL;DR)
 
+**GUI Mode:**
 ```bash
 git clone https://github.com/michaelmagdy15/VegasDavinciLinkToolz.git
 cd VegasDavinciLinkToolz
 python main.py
 ```
+Or double-click **`launch.bat`**.
 
-That's it. A GUI window opens. Select your XML, pick your conversion direction, and hit **Convert**.
+**CLI / Automation Mode:**
+Need to batch-convert or automate inside scripts? Run headless without the GUI:
+```bash
+# Convert Vegas XML for DaVinci Resolve
+python main.py timeline.xml --cli
+
+# Convert Resolve XML back for Vegas Pro
+python main.py graded.xml --cli -m resolve_to_vegas
+
+# Convert with path remapping and custom output path
+python main.py timeline.xml --cli --remap-src "D:/Projects" --remap-dst "E:/Media" -o converted.xml
+```
 
 ---
 

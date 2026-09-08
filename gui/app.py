@@ -37,7 +37,7 @@ class TimelineBridgeApp:
     WINDOW_MIN_WIDTH = 720
     WINDOW_MIN_HEIGHT = 640
 
-    def __init__(self):
+    def __init__(self, initial_file: Optional[str] = None):
         self.root = tk.Tk()
         self.root.title(self.WINDOW_TITLE)
         self.root.configure(bg=COLORS["bg_primary"])
@@ -52,7 +52,7 @@ class TimelineBridgeApp:
 
         # State variables
         self.mode_var = tk.StringVar(value="vegas_to_resolve")
-        self.input_path_var = tk.StringVar()
+        self.input_path_var = tk.StringVar(value=initial_file or "")
         self.is_converting = False
 
         # Build the UI
@@ -63,6 +63,13 @@ class TimelineBridgeApp:
         self._build_convert_button()
         self._build_log_panel()
         self._build_status_bar()
+
+        # Preload initial file if passed
+        if initial_file:
+            self.file_entry.delete(0, tk.END)
+            self.file_entry.insert(0, initial_file)
+            self.file_entry.configure(fg=COLORS["text_primary"])
+            self.log_panel.log("info", f"Preloaded: {initial_file}")
 
     # ======================================================================
     # UI Construction
@@ -370,10 +377,19 @@ class TimelineBridgeApp:
         """Start the Tkinter main loop."""
         # Center the window on screen
         self.root.update_idletasks()
-        w = self.root.winfo_width()
-        h = self.root.winfo_height()
-        x = (self.root.winfo_screenwidth() // 2) - (w // 2)
-        y = (self.root.winfo_screenheight() // 2) - (h // 2)
-        self.root.geometry(f"+{x}+{y}")
+        w = max(self.WINDOW_MIN_WIDTH, self.root.winfo_width())
+        h = max(self.WINDOW_MIN_HEIGHT, self.root.winfo_height())
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        x = max(0, (screen_w // 2) - (w // 2))
+        y = max(0, (screen_h // 2) - (h // 2))
+        self.root.geometry(f"{w}x{h}+{x}+{y}")
+
+        # Ensure window is visible and focused
+        self.root.deiconify()
+        self.root.lift()
+        self.root.attributes("-topmost", True)
+        self.root.after_idle(lambda: self.root.attributes("-topmost", False))
+        self.root.focus_force()
 
         self.root.mainloop()

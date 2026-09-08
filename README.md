@@ -33,19 +33,97 @@ Going the other way is just as bad — Resolve exports `file://localhost/` URIs 
 
 ---
 
-## 🚀 Quick Start
+## 📥 Installation
 
-### Prerequisites
-- **Python 3.8+** (comes pre-installed on most systems — [download here](https://www.python.org/downloads/) if needed)
+### Step 1: Install Python (if you don't have it)
 
-### Run It
+You need **Python 3.8 or newer**. Most editors don't have this yet — here's how to get it:
+
+<details>
+<summary><strong>🪟 Windows (most common for Vegas editors)</strong></summary>
+
+1. Go to [python.org/downloads](https://www.python.org/downloads/)
+2. Click the big yellow **"Download Python 3.x.x"** button
+3. Run the installer
+4. **⚠️ IMPORTANT: Check the box that says "Add Python to PATH"** at the bottom of the installer — this is the #1 mistake people make
+5. Click "Install Now"
+6. To verify, open **Command Prompt** or **PowerShell** and type:
+   ```
+   python --version
+   ```
+   You should see something like `Python 3.12.x`
+
+</details>
+
+<details>
+<summary><strong>🍎 macOS</strong></summary>
+
+1. Open **Terminal** (press `Cmd + Space`, type "Terminal")
+2. Install via Homebrew (recommended):
+   ```bash
+   brew install python
+   ```
+   Or download from [python.org/downloads](https://www.python.org/downloads/)
+3. Verify:
+   ```bash
+   python3 --version
+   ```
+
+</details>
+
+<details>
+<summary><strong>🐧 Linux</strong></summary>
+
+Python is usually pre-installed. Check with:
+```bash
+python3 --version
+```
+If not installed:
+```bash
+# Ubuntu/Debian
+sudo apt install python3
+
+# Fedora
+sudo dnf install python3
+```
+
+</details>
+
+### Step 2: Download the Tool
+
+**Option A — With Git (recommended)**
+
+If you have Git installed ([download Git here](https://git-scm.com/downloads) if not):
 
 ```bash
-# Clone the repo
 git clone https://github.com/michaelmagdy15/VegasDavinciLinkToolz.git
 cd VegasDavinciLinkToolz
+```
 
-# Launch the app
+**Option B — Direct Download (no Git needed)**
+
+1. Go to [github.com/michaelmagdy15/VegasDavinciLinkToolz](https://github.com/michaelmagdy15/VegasDavinciLinkToolz)
+2. Click the green **"Code"** button → **"Download ZIP"**
+3. Extract the ZIP wherever you want (e.g., your Desktop)
+4. Open a terminal in the extracted folder
+
+### Step 3: Launch the App
+
+```bash
+python main.py
+```
+
+> **Note for macOS/Linux users:** If `python` doesn't work, try `python3 main.py` instead.
+
+That's it — the GUI opens and you're ready to convert. No `pip install`, no virtual environments, no setup wizards.
+
+---
+
+## 🚀 Quick Start (TL;DR)
+
+```bash
+git clone https://github.com/michaelmagdy15/VegasDavinciLinkToolz.git
+cd VegasDavinciLinkToolz
 python main.py
 ```
 

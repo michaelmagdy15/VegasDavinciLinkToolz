@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using System.Collections.Generic;
 using ScriptPortal.Vegas;
@@ -33,7 +34,7 @@ public class EntryPoint
 
             string jsonText = File.ReadAllText(manifestPath, Encoding.UTF8);
 
-            // Simple robust JSON parser for selects clips
+            // Robust regex JSON parser for selects clips
             List<SelectClip> clips = ParseSelectsJson(jsonText);
             if (clips.Count == 0)
             {
@@ -138,15 +139,15 @@ public class EntryPoint
     private List<SelectClip> ParseSelectsJson(string json)
     {
         List<SelectClip> list = new List<SelectClip>();
-        string[] blocks = json.Split(new string[] { "{\n    \"name\":" }, StringSplitOptions.RemoveEmptyEntries);
+        MatchCollection blockMatches = Regex.Matches(json, @"\{[^{}]*""media_path""[^{}]*\}", RegexOptions.Singleline);
 
-        for (int i = 1; i < blocks.Length; i++)
+        foreach (Match bm in blockMatches)
         {
-            string b = "{\n    \"name\":" + blocks[i];
-            string mediaPath = ExtractJsonField(b, "media_path");
-            string sourceInStr = ExtractJsonField(b, "source_in_ms");
-            string lengthStr = ExtractJsonField(b, "length_ms");
-            string label = ExtractJsonField(b, "label");
+            string block = bm.Value;
+            string mediaPath = ExtractRegex(block, @"""media_path""\s*:\s*""([^""]*)""");
+            string sourceInStr = ExtractRegex(block, @"""source_in_ms""\s*:\s*([0-9.]+)");
+            string lengthStr = ExtractRegex(block, @"""length_ms""\s*:\s*([0-9.]+)");
+            string label = ExtractRegex(block, @"""label""\s*:\s*""([^""]*)""");
 
             if (!string.IsNullOrEmpty(mediaPath))
             {
@@ -156,7 +157,7 @@ public class EntryPoint
                 double.TryParse(lengthStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out lenMs);
 
                 SelectClip sc = new SelectClip();
-                sc.MediaPath = mediaPath.Replace("\\\\", "\\");
+                sc.MediaPath = mediaPath.Replace(@"\\", @"\");
                 sc.SourceInMs = inMs;
                 sc.LengthMs = lenMs;
                 sc.Label = label;
@@ -166,16 +167,14 @@ public class EntryPoint
         return list;
     }
 
-    private string ExtractJsonField(string block, string key)
+    private string ExtractRegex(string input, string pattern)
     {
-        string pattern = "\"" + key + "\": ";
-        int idx = block.IndexOf(pattern);
-        if (idx == -1) return "";
-        int start = idx + pattern.Length;
-        int end = block.IndexOfAny(new char[] { ',', '\n', '}' }, start);
-        if (end == -1) end = block.Length;
-        string val = block.Substring(start, end - start).Trim().Trim('\"');
-        return val;
+        Match m = Regex.Match(input, pattern);
+        if (m.Success && m.Groups.Count > 1)
+        {
+            return m.Groups[1].Value;
+        }
+        return string.Empty;
     }
 
     private class SelectClip

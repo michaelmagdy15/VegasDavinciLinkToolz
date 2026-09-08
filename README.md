@@ -71,6 +71,25 @@ Double-click `install_plugins.bat` to automatically install the plugins:
 
 ---
 
+## 📊 Supported Versions & Compatibility
+
+| NLE Platform | Version Range | Live Link (1-Click Auto) | In-App Script Menu | XML Sanitizer Engine |
+| :--- | :--- | :---: | :---: | :---: |
+| **VEGAS Pro** | **2026.0, 23.0, 22.0, 21.0, 20.0** | ✅ **Full Auto** | ✅ **Supported** | ✅ **Universal** |
+| **VEGAS Pro** | **19.0, 18.0, 17.0, 16.0, 15.0, 14.0** | ✅ **Full Auto** | ✅ **Supported** | ✅ **Universal** |
+| **Sony Vegas (Legacy)** | **13.0, 12.0, 11.0, 10.0** | ⚠️ *Via XML* | ⚠️ *Via XML* | ✅ **Universal** |
+| **DaVinci Resolve Studio** | **Resolve 21, 20, 19, 18, 17, 16, 15** | ✅ **Full Auto** | ✅ **Supported** | ✅ **Universal** |
+| **DaVinci Resolve Free** | **Resolve 21, 20, 19, 18, 17, 16** | ⚠️ *(In-App/XML)* | ✅ **Supported** | ✅ **Universal** |
+
+### Compatibility Details:
+- **VEGAS Pro (14.0 up to 2026.0)**: Uses the official `ScriptPortal.Vegas` .NET API. `install_plugins.bat` automatically scans your computer and installs the scripts into every installed VEGAS version simultaneously.
+- **DaVinci Resolve Studio (15 to 21)**: Full automatic background synchronization via Blackmagic's official `DaVinciResolveScript` API. Clicking "Send to DaVinci Resolve" in VEGAS updates Resolve automatically without switching apps.
+- **DaVinci Resolve Free Edition**: Blackmagic officially restricts external background API connections on the Free version. Free edition users can either run **Workspace → Scripts → ImportFromVegas** directly inside Resolve, or use the Desktop App's XML Sanitizer.
+- **Legacy Sony Vegas (13 and older)**: Supported 100% via the Universal XML Sanitizer engine, which processes Final Cut Pro XML v4/v5 files back to Vegas Pro 7.
+
+---
+
+
 
 
 ## 📥 Installation

@@ -81,6 +81,7 @@ class CleaningStats:
     timecodes_fixed: int = 0
     links_preserved: int = 0
     empty_tracks_removed: int = 0
+    sequence_files_populated: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -295,6 +296,42 @@ def remove_empty_tracks(root: ET.Element) -> int:
     return removed
 
 
+def populate_sequence_files(root: ET.Element) -> int:
+    """Populate empty <file id="..."/> stubs in <sequence> with full metadata.
+
+    VEGAS Pro exports define the full file details (including <name> and <pathurl>)
+    inside master clips in <project><children><clip>, but only write empty
+    <file id="..."/> reference stubs inside the timeline <sequence>.
+    DaVinci Resolve strictly expects <pathurl> to be inside each sequence clip's
+    <file> element, otherwise it prompts 'clips were not yet found'.
+    """
+    import copy
+
+    # Collect master file definitions from everywhere in the document
+    file_defs = {}
+    for f in root.findall(".//file"):
+        fid = f.get("id")
+        if fid and len(f) > 0 and f.find("pathurl") is not None:
+            if fid not in file_defs:
+                file_defs[fid] = f
+
+    populated = 0
+    seq = root.find(".//sequence")
+    if seq is None:
+        return 0
+
+    for f in seq.findall(".//file"):
+        if len(f) == 0:
+            fid = f.get("id")
+            master = file_defs.get(fid)
+            if master is not None:
+                for child in master:
+                    f.append(copy.deepcopy(child))
+                populated += 1
+
+    return populated
+
+
 # ---------------------------------------------------------------------------
 # Full cleaning pass
 # ---------------------------------------------------------------------------
@@ -302,16 +339,18 @@ def remove_empty_tracks(root: ET.Element) -> int:
 def clean_xml_for_resolve(root: ET.Element, remove_empty: bool = True) -> CleaningStats:
     """Run the full cleaning pipeline on an XMEML tree.
 
-    1. Strip unsafe effects
-    2. Strip unsafe filters
-    3. Normalize timecodes
-    4. Count preserved links
-    5. Optionally remove empty tracks
+    1. Populate empty sequence file stubs with full pathurls and metadata
+    2. Strip unsafe effects
+    3. Strip unsafe filters
+    4. Normalize timecodes
+    5. Count preserved links
+    6. Optionally remove empty tracks
 
     Returns a CleaningStats with counts for every action.
     """
     stats = CleaningStats()
 
+    stats.sequence_files_populated = populate_sequence_files(root)
     stats.effects_removed, stats.effects_kept = strip_unsafe_effects(root)
     stats.filters_removed, stats.filters_kept = strip_unsafe_filters(root)
     stats.timecodes_fixed = normalize_timecodes(root)

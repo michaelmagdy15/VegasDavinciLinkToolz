@@ -211,6 +211,9 @@ def convert_vegas_to_resolve(
     log_fn("success",
            f"Filters: {result.filters_removed} removed, {result.filters_kept} kept")
 
+    if cleaning_stats.sequence_files_populated > 0:
+        log_fn("info", f"Timeline clips: {cleaning_stats.sequence_files_populated} file references linked directly into sequence")
+
     if result.timecodes_fixed > 0:
         log_fn("info", f"Timecodes: {result.timecodes_fixed} fixed/injected")
 

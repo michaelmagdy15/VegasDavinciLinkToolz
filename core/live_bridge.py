@@ -257,7 +257,7 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
         log_fn(f"[ERROR] Manifest file not found: {json_path}")
         return False
 
-    with open(json_path, "r", encoding="utf-8") as f:
+    with open(json_path, "r", encoding="utf-8-sig") as f:
         data = json.load(f)
 
     resolve = get_resolve_app()
@@ -406,6 +406,27 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
                 res = mp.AppendToTimeline([clip_info])
                 if res:
                     clips_added += 1
+                    if is_video and len(res) > 0:
+                        item = res[0]
+                        rot = clip.get("rotation_angle", 0.0)
+                        zx = clip.get("zoom_x", 1.0)
+                        zy = clip.get("zoom_y", 1.0)
+                        px = clip.get("pan_x", 0.0)
+                        py = clip.get("pan_y", 0.0)
+
+                        try:
+                            if abs(rot) > 0.01:
+                                item.SetProperty("RotationAngle", float(rot))
+                            if abs(zx - 1.0) > 0.001:
+                                item.SetProperty("ZoomX", float(zx))
+                            if abs(zy - 1.0) > 0.001:
+                                item.SetProperty("ZoomY", float(zy))
+                            if abs(px) > 0.01:
+                                item.SetProperty("Pan", float(px))
+                            if abs(py) > 0.01:
+                                item.SetProperty("Tilt", float(py))
+                        except Exception:
+                            pass
             except Exception:
                 pass
 

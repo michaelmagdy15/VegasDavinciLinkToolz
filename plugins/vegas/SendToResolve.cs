@@ -121,6 +121,40 @@ public class EntryPoint
                     double fadeOutMs = ev.FadeOut != null ? ev.FadeOut.Length.ToMilliseconds() : 0.0;
                     double playbackRate = ev.PlaybackRate;
 
+                    // Extract Pan/Crop Zoom & Rotation
+                    double rotationAngle = 0.0;
+                    double zoomX = 1.0;
+                    double zoomY = 1.0;
+                    double panX = 0.0;
+                    double panY = 0.0;
+
+                    VideoEvent ve = ev as VideoEvent;
+                    if (ve != null && ve.VideoMotion != null && ve.VideoMotion.Keyframes.Count > 0)
+                    {
+                        VideoMotionKeyframe kf = ve.VideoMotion.Keyframes[0];
+                        rotationAngle = kf.Rotation;
+
+                        if (kf.Bounds != null && kf.Bounds.TopRight != null && kf.Bounds.TopLeft != null && kf.Bounds.BottomLeft != null)
+                        {
+                            double bw = Math.Sqrt(Math.Pow(kf.Bounds.TopRight.X - kf.Bounds.TopLeft.X, 2) + Math.Pow(kf.Bounds.TopRight.Y - kf.Bounds.TopLeft.Y, 2));
+                            double bh = Math.Sqrt(Math.Pow(kf.Bounds.BottomLeft.X - kf.Bounds.TopLeft.X, 2) + Math.Pow(kf.Bounds.BottomLeft.Y - kf.Bounds.TopLeft.Y, 2));
+                            if (bw > 0.001 && vegas.Project.Video.Width > 0)
+                            {
+                                zoomX = (double)vegas.Project.Video.Width / bw;
+                            }
+                            if (bh > 0.001 && vegas.Project.Video.Height > 0)
+                            {
+                                zoomY = (double)vegas.Project.Video.Height / bh;
+                            }
+                        }
+
+                        if (kf.Center != null)
+                        {
+                            panX = (double)kf.Center.X - (vegas.Project.Video.Width / 2.0);
+                            panY = (double)kf.Center.Y - (vegas.Project.Video.Height / 2.0);
+                        }
+                    }
+
                     StringBuilder cb = new StringBuilder();
                     cb.AppendLine("        {");
                     cb.AppendFormat("          \"name\": \"{0}\",\n", EscapeJson(clipName));
@@ -131,6 +165,11 @@ public class EntryPoint
                     cb.AppendFormat("          \"fade_in_ms\": {0:F2},\n", fadeInMs);
                     cb.AppendFormat("          \"fade_out_ms\": {0:F2},\n", fadeOutMs);
                     cb.AppendFormat("          \"playback_rate\": {0:F3},\n", playbackRate);
+                    cb.AppendFormat("          \"rotation_angle\": {0:F2},\n", rotationAngle);
+                    cb.AppendFormat("          \"zoom_x\": {0:F4},\n", zoomX);
+                    cb.AppendFormat("          \"zoom_y\": {0:F4},\n", zoomY);
+                    cb.AppendFormat("          \"pan_x\": {0:F2},\n", panX);
+                    cb.AppendFormat("          \"pan_y\": {0:F2},\n", panY);
                     cb.AppendFormat("          \"mute\": {0}\n", ev.Mute ? "true" : "false");
                     cb.Append("        }");
                     clipJsonList.Add(cb.ToString());
@@ -146,7 +185,8 @@ public class EntryPoint
             sb.AppendLine("  ]");
             sb.AppendLine("}");
 
-            File.WriteAllText(jsonPath, sb.ToString(), Encoding.UTF8);
+            // Write UTF-8 without BOM to prevent Python JSONDecodeError
+            File.WriteAllText(jsonPath, sb.ToString(), new UTF8Encoding(false));
 
             // Execute Python Live Bridge runner
             string runnerPath = Path.Combine(bridgeDir, "run_live_sync.py");
@@ -156,9 +196,16 @@ public class EntryPoint
             {
                 try
                 {
+                    string pythonExe = "python";
+                    string localPy = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\Python\Python312\python.exe");
+                    if (File.Exists(localPy))
+                    {
+                        pythonExe = localPy;
+                    }
+
                     ProcessStartInfo psi = new ProcessStartInfo
                     {
-                        FileName = "python",
+                        FileName = pythonExe,
                         Arguments = string.Format("\"{0}\" \"{1}\"", runnerPath, jsonPath),
                         UseShellExecute = false,
                         CreateNoWindow = true

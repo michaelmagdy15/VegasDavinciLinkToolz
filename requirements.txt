@@ -1,0 +1,5 @@
+# No external dependencies — this project uses Python standard library only.
+# Python 3.8+ required.
+#
+# Optional (for running tests):
+#   pip install pytest

@@ -42,6 +42,38 @@ public class EntryPoint
                 return;
             }
 
+            // Check if existing AI selects tracks already contain events
+            bool clearExisting = false;
+            bool hasExistingSelects = false;
+            foreach (Track t in vegas.Project.Tracks)
+            {
+                if (t.IsVideo() && t.Name != null && t.Name.Contains("[AI SELECTS]") && t.Events.Count > 0)
+                {
+                    hasExistingSelects = true;
+                    break;
+                }
+            }
+
+            if (hasExistingSelects)
+            {
+                DialogResult choice = MessageBox.Show(
+                    "Previous AI Selects were detected on your timeline.\n\n" +
+                    "• Click YES to REPLACE existing select tracks with the full 570 cuts fresh.\n" +
+                    "• Click NO to APPEND the new cuts to the end of the existing tracks.\n" +
+                    "• Click CANCEL to abort without importing.\n\n" +
+                    "(Your rough cut is completely safe and will never be touched).",
+                    "Import AI Selects Mode",
+                    MessageBoxButtons.YesNoCancel,
+                    MessageBoxIcon.Question
+                );
+
+                if (choice == DialogResult.Cancel)
+                {
+                    return;
+                }
+                clearExisting = (choice == DialogResult.Yes);
+            }
+
             // Track cache and timeline cursor positions per track
             Dictionary<string, VideoTrack> tracksByName = new Dictionary<string, VideoTrack>();
             Dictionary<string, double> trackEndMs = new Dictionary<string, double>();
@@ -76,7 +108,7 @@ public class EntryPoint
                 }
 
                 string targetTrackName = !string.IsNullOrEmpty(c.TrackName) ? c.TrackName : "[AI SELECTS] Kiting Action";
-                VideoTrack vt = GetOrCreateTrack(vegas, tracksByName, trackEndMs, targetTrackName);
+                VideoTrack vt = GetOrCreateTrack(vegas, tracksByName, trackEndMs, targetTrackName, clearExisting);
 
                 double currentMs = trackEndMs[targetTrackName];
                 Timecode start = Timecode.FromMilliseconds(currentMs);
@@ -117,25 +149,45 @@ public class EntryPoint
         }
     }
 
-    private VideoTrack GetOrCreateTrack(Vegas vegas, Dictionary<string, VideoTrack> tracksByName, Dictionary<string, double> trackEndMs, string trackName)
+    private VideoTrack GetOrCreateTrack(Vegas vegas, Dictionary<string, VideoTrack> tracksByName, Dictionary<string, double> trackEndMs, string trackName, bool clearExisting)
     {
         if (tracksByName.ContainsKey(trackName))
         {
-            return tracksByName[trackName];
+            VideoTrack existingTrack = tracksByName[trackName];
+            if (!trackEndMs.ContainsKey(trackName))
+            {
+                if (clearExisting)
+                {
+                    List<TrackEvent> toRemove = new List<TrackEvent>();
+                    foreach (TrackEvent ev in existingTrack.Events)
+                    {
+                        toRemove.Add(ev);
+                    }
+                    foreach (TrackEvent ev in toRemove)
+                    {
+                        existingTrack.Events.Remove(ev);
+                    }
+                    trackEndMs[trackName] = 0.0;
+                }
+                else
+                {
+                    double endMs = 0.0;
+                    foreach (TrackEvent ev in existingTrack.Events)
+                    {
+                        double evEnd = ev.End.ToMilliseconds();
+                        if (evEnd > endMs) endMs = evEnd;
+                    }
+                    if (endMs > 0.0) endMs += 1000.0;
+                    trackEndMs[trackName] = endMs;
+                }
+            }
+            return existingTrack;
         }
 
         VideoTrack newTrack = new VideoTrack(vegas.Project.Tracks.Count, trackName);
         vegas.Project.Tracks.Add(newTrack);
         tracksByName[trackName] = newTrack;
-
-        double endMs = 0.0;
-        foreach (TrackEvent ev in newTrack.Events)
-        {
-            double evEnd = ev.End.ToMilliseconds();
-            if (evEnd > endMs) endMs = evEnd;
-        }
-        if (endMs > 0.0) endMs += 1000.0;
-        trackEndMs[trackName] = endMs;
+        trackEndMs[trackName] = 0.0;
 
         return newTrack;
     }

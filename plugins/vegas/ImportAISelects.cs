@@ -42,7 +42,7 @@ public class EntryPoint
                 return;
             }
 
-            // Create or reuse AI Selects Video Track at top of project
+            // Create or reuse AI Selects Video Track
             Track selectsTrack = null;
             foreach (Track t in vegas.Project.Tracks)
             {
@@ -55,8 +55,8 @@ public class EntryPoint
 
             if (selectsTrack == null)
             {
-                selectsTrack = new VideoTrack(0, "[AI SELECTS] Kiting Action");
-                vegas.Project.Tracks.Insert(0, selectsTrack);
+                selectsTrack = new VideoTrack(vegas.Project.Tracks.Count, "[AI SELECTS] Kiting Action");
+                vegas.Project.Tracks.Add(selectsTrack);
             }
 
             double currentMs = 0.0;
@@ -85,10 +85,10 @@ public class EntryPoint
                     continue;
                 }
 
-                Media media = vegas.Project.MediaPool.Find(c.MediaPath);
+                Media media = Media.CreateInstance(vegas.Project, c.MediaPath);
                 if (media == null)
                 {
-                    media = Media.CreateInstance(vegas.Project, c.MediaPath);
+                    continue;
                 }
 
                 VideoStream vs = media.GetVideoStreamByIndex(0);

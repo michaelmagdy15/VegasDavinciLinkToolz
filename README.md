@@ -1,0 +1,231 @@
+<p align="center">
+  <h1 align="center">🎬 Vegas ↔ DaVinci Resolve Timeline Bridge</h1>
+  <p align="center">
+    <strong>Cut in Vegas. Grade in Resolve. No broken timelines.</strong>
+  </p>
+  <p align="center">
+    <a href="#-quick-start">Quick Start</a> •
+    <a href="#-what-it-does">What It Does</a> •
+    <a href="#-how-to-use">How to Use</a> •
+    <a href="#-features">Features</a> •
+    <a href="#-faq">FAQ</a>
+  </p>
+</p>
+
+---
+
+## 😤 The Problem
+
+You edited a project in **VEGAS Pro**, exported the timeline as an XML, and tried to import it into **DaVinci Resolve** for color grading. What happened?
+
+- ❌ **"Media Offline"** — Resolve can't find your files because VEGAS wrote Windows paths (`D:\Footage\Clip.mp4`) instead of proper file URIs (`file://localhost/D:/Footage/Clip.mp4`)
+- ❌ **Import crashes or silent failures** — VEGAS injects proprietary effect metadata (Track Motion, Pan/Crop, MAGIX Video FX) that Resolve's XML parser chokes on
+- ❌ **Mismatched framerates** — Some clips are missing `<rate>` tags, causing Resolve to guess wrong and shift your edit
+- ❌ **Empty ghost tracks** cluttering up Resolve's timeline
+
+Going the other way is just as bad — Resolve exports `file://localhost/` URIs that VEGAS can't read, triggering the dreaded **"Search for Missing Files"** dialog on every clip.
+
+## ✅ The Solution
+
+**Timeline Bridge** is a free, open-source desktop tool that fixes all of this in one click. Drop in your XML, hit Convert, and get a clean file that imports perfectly.
+
+**Zero dependencies. Zero cost. Zero internet required.** Just Python and your XML.
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- **Python 3.8+** (comes pre-installed on most systems — [download here](https://www.python.org/downloads/) if needed)
+
+### Run It
+
+```bash
+# Clone the repo
+git clone https://github.com/michaelmagdy15/VegasDavinciLinkToolz.git
+cd VegasDavinciLinkToolz
+
+# Launch the app
+python main.py
+```
+
+That's it. A GUI window opens. Select your XML, pick your conversion direction, and hit **Convert**.
+
+---
+
+## 🔧 What It Does
+
+### Vegas → Resolve (the main workflow)
+
+| Step | What Gets Fixed |
+|---|---|
+| **Path Conversion** | `D:\Footage\My Clip.mp4` → `file://localhost/D:/Footage/My%20Clip.mp4` |
+| **URL Encoding** | Spaces, parentheses, special chars get RFC 3986 encoded |
+| **Effect Stripping** | Removes VEGAS/Sony/MAGIX proprietary effects that crash Resolve |
+| **Safe Effect Preservation** | Keeps standard FCP7 effects Resolve understands (Opacity, Basic Motion, Audio Levels, Cross Dissolve) |
+| **Timecode Normalization** | Ensures consistent framerate tags across every clip and track |
+| **A/V Sync** | All `<link>` tags (audio-video sync references) are 100% preserved |
+| **Empty Track Cleanup** | Removes empty placeholder tracks VEGAS exports |
+
+### Resolve → Vegas (bringing it back)
+
+| Step | What Gets Fixed |
+|---|---|
+| **URI → Windows Path** | `file://localhost/D:/Footage/My%20Clip.mp4` → `D:\Footage\My Clip.mp4` |
+| **URL Decoding** | `%20` → spaces, `%28` → parentheses, etc. |
+| **A/V Sync** | Link tags preserved |
+
+### Batch Path Remapping (both directions)
+
+Moved your footage to a new drive? Changed your folder structure? Use the **Path Remapping** fields:
+
+```
+Find:    C:\OldProjects\Wedding\
+Replace: E:\Media\Wedding\
+```
+
+Every matching path in the XML gets updated. Works with both Windows paths and file URIs.
+
+---
+
+## 📖 How to Use
+
+### 1. Export from VEGAS Pro
+
+In VEGAS Pro 2026:
+1. Go to **File → Export → Final Cut Pro XML** (or **File → Render As** and choose XML)
+2. Save the `.xml` file somewhere accessible
+
+### 2. Run Timeline Bridge
+
+```bash
+python main.py
+```
+
+### 3. Convert
+
+1. **Select mode**: "Vegas Pro → DaVinci Resolve" (default)
+2. **Browse** to your exported XML file
+3. *(Optional)* Enter path remapping if your footage moved
+4. Click **⚡ Convert Timeline**
+5. Watch the log — it shows every path fixed, every effect stripped
+6. Output file is saved next to your input as `yourfile_for_resolve.xml`
+
+### 4. Import into Resolve
+
+In DaVinci Resolve Studio 21:
+1. Go to **File → Import → Timeline → Import AAF, EDL, XML...**
+2. Select the `_for_resolve.xml` file
+3. Your timeline imports cleanly — all cuts, clips, and A/V sync intact
+
+### 5. Going Back (Optional)
+
+After grading in Resolve:
+1. **File → Export → Timeline → FCP 7 XML**
+2. Run Timeline Bridge in **"Resolve → Vegas"** mode
+3. Import the `_for_vegas.xml` back into VEGAS Pro — no missing files
+
+---
+
+## ✨ Features
+
+- 🎯 **One-click conversion** — no command line needed
+- 🖥️ **Dark-themed GUI** — looks at home next to Resolve and Vegas
+- 📋 **Real-time log** — see exactly what's being fixed
+- 🔄 **Bidirectional** — Vegas→Resolve AND Resolve→Vegas
+- 📁 **Batch path remapping** — fix drive letters and folder moves
+- 🛡️ **Safe effect whitelist** — only strips what Resolve can't read
+- ⏱️ **Timecode normalization** — no more framerate mismatches
+- 🔗 **A/V sync preservation** — link tags never touched
+- 🧹 **Empty track cleanup** — clean timeline in Resolve
+- 📦 **Zero dependencies** — pure Python stdlib, runs anywhere
+- 💰 **100% free and open source** — MIT license
+
+---
+
+## 🧪 Running Tests
+
+```bash
+# From the project root
+python -m pytest tests/ -v
+```
+
+Tests cover:
+- Path conversion (Windows ↔ file URI) with edge cases (spaces, unicode, parentheses)
+- Effect stripping whitelist accuracy
+- Timecode normalization
+- Full round-trip: Vegas XML → Resolve XML → Vegas XML
+- Link tag preservation
+
+---
+
+## 📁 Project Structure
+
+```
+VegasDavinciLinkToolz/
+├── main.py                  # Launch the app
+├── gui/
+│   ├── app.py               # Main window (Tkinter)
+│   └── widgets.py           # Reusable UI components
+├── core/
+│   ├── parser.py            # XMEML XML parser
+│   ├── path_sanitizer.py    # Windows ↔ file:// URI conversion
+│   ├── xml_cleaner.py       # Effect stripping & timecode fixing
+│   └── converter.py         # Orchestrator (ties it all together)
+├── tests/
+│   ├── test_path_sanitizer.py
+│   ├── test_xml_cleaner.py
+│   ├── test_converter.py
+│   └── fixtures/
+│       ├── vegas_sample.xml     # Simulated VEGAS export (with issues)
+│       └── resolve_sample.xml   # Simulated Resolve export
+├── requirements.txt         # (empty — stdlib only!)
+└── .gitignore
+```
+
+---
+
+## ❓ FAQ
+
+**Q: Does this work with VEGAS Pro versions other than 2026?**
+A: Yes! The XML format (XMEML / FCP7 XML) hasn't changed significantly across VEGAS versions. Should work with VEGAS Pro 14+.
+
+**Q: Does this work with free DaVinci Resolve (not Studio)?**
+A: Yes, both free Resolve and Resolve Studio use the same XML import.
+
+**Q: Will I lose my edits/cuts?**
+A: No. The tool only modifies file paths, strips incompatible effects, and normalizes timecodes. Your actual edit (in/out points, clip positions, track layout, A/V sync) is never changed.
+
+**Q: What about transitions?**
+A: Standard transitions (Cross Dissolve, Fade In/Out, Dip to Color) are preserved. VEGAS-only transitions may need to be re-applied in Resolve.
+
+**Q: Can I use this with Premiere Pro or Final Cut?**
+A: The tool is optimized for the Vegas↔Resolve workflow, but since it outputs clean FCP7 XML, the output should be compatible with any NLE that reads that format.
+
+**Q: Do I need to install anything?**
+A: Just Python 3.8+. No pip packages, no Node.js, no Docker. Download Python from [python.org](https://www.python.org/downloads/) if you don't have it.
+
+---
+
+## 🤝 Contributing
+
+Found a bug? Have a feature idea? PRs are welcome!
+
+1. Fork the repo
+2. Create a branch (`git checkout -b fix/my-fix`)
+3. Make your changes
+4. Run tests (`python -m pytest tests/ -v`)
+5. Open a PR
+
+---
+
+## 📄 License
+
+MIT License — use it however you want, free forever.
+
+---
+
+<p align="center">
+  <strong>Built for editors, by editors.</strong><br>
+  <em>Because your timeline shouldn't break just because you switched apps.</em>
+</p>

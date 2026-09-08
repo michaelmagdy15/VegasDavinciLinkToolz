@@ -17,14 +17,25 @@ set RESOLVE_EXP_PY=%SCRIPT_DIR%plugins\resolve\ExportToVegas.py
 echo [1/2] Installing to VEGAS Pro...
 set VEGAS_COUNT=0
 
-for %%V in (2026.0 23.0 22.0 21.0 20.0) do (
+for %%V in (2026.0 23.0 22.0 21.0 20.0 19.0 18.0 17.0 16.0 15.0 14.0) do (
     set TARGET_DIR=%APPDATA%\VEGAS Pro\%%V\Script Menu
     if exist "%APPDATA%\VEGAS Pro\%%V" (
         if not exist "!TARGET_DIR!" mkdir "!TARGET_DIR!"
         copy /Y "%VEGAS_SEND_CS%" "!TARGET_DIR!\Send to DaVinci Resolve.cs" >nul 2>&1
         copy /Y "%VEGAS_RECV_CS%" "!TARGET_DIR!\Receive from DaVinci Resolve.cs" >nul 2>&1
         if !ERRORLEVEL! equ 0 (
-            echo   [OK] Installed to VEGAS Pro %%V ^(Send to DaVinci Resolve ^& Receive from DaVinci Resolve^)
+            echo   [OK] Installed to VEGAS Pro %%V ^(AppData Script Menu^)
+            set /a VEGAS_COUNT+=1
+        )
+    )
+    :: Also check Program Files installation
+    set PROG_DIR=%PROGRAMFILES%\VEGAS\VEGAS Pro %%V\Script Menu
+    if exist "%PROGRAMFILES%\VEGAS\VEGAS Pro %%V" (
+        if not exist "!PROG_DIR!" mkdir "!PROG_DIR!" >nul 2>&1
+        copy /Y "%VEGAS_SEND_CS%" "!PROG_DIR!\Send to DaVinci Resolve.cs" >nul 2>&1
+        copy /Y "%VEGAS_RECV_CS%" "!PROG_DIR!\Receive from DaVinci Resolve.cs" >nul 2>&1
+        if !ERRORLEVEL! equ 0 (
+            echo   [OK] Installed to VEGAS Pro %%V ^(Program Files Script Menu^)
             set /a VEGAS_COUNT+=1
         )
     )

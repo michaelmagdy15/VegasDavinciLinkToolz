@@ -33,6 +33,8 @@ COLORS = {
     "text_info":      "#74b9ff",   # Info text
     "border":         "#2d3a5f",   # Subtle border
     "highlight":      "#e94560",   # Selection/focus highlight
+    "accent_blue":    "#0984e3",   # Blue accent for Live Link
+    "accent_hover":   "#74b9ff",   # Blue hover
 }
 
 LOG_COLORS = {

@@ -37,23 +37,40 @@ Going the other way is just as bad — Resolve exports `file://localhost/` URIs 
 
 ## ⚡ Direct Live Link (Bidirectional Plugins)
 
-Connects VEGAS Pro (2026.0, 23.0, 22.0) and DaVinci Resolve Studio (21 / 20 / 19) directly without manual file exporting:
+Connects **VEGAS Pro** (2026.0, 23.0, 22.0, 21.0) and **DaVinci Resolve Studio** (21 / 20 / 19) directly without manual file exporting:
 
 ### 1-Minute Setup
-Double-click `install_plugins.bat` to automatically install the plugins into:
-- VEGAS Pro: `Tools → Scripting`
-- DaVinci Resolve: `Workspace → Scripts`
+Double-click `install_plugins.bat` to automatically install the plugins:
+- **VEGAS Pro**: Adds `Send to DaVinci Resolve` and `Receive from DaVinci Resolve` to the `Tools → Scripting` menu.
+- **DaVinci Resolve**: Adds `ImportFromVegas` and `ExportToVegas` to the `Workspace → Scripts` menu.
+
+---
+
+### What Gets Transferred:
+- ✅ **All Video & Audio Track Layers**: Full track hierarchy, naming, and order.
+- ✅ **Cuts, Trims, & In/Outs**: Exact millisecond and frame-level cut points.
+- ✅ **Zero-Gap Media FPS Scaling**: Mixed frame rates (e.g. 59.94 fps Sony/DJI clips on a 29.97 fps timeline) automatically scaled with **0.00 frame gaps**.
+- ✅ **Automatic Media Re-linking**: Media Pool items are matched and ingested with `Start TC` aligned to `00:00:00:00` (eliminating "timecode extents do not match").
+- ✅ **Timeline Markers & Regions**: VEGAS markers become Resolve Cyan timeline markers; VEGAS regions become Yellow duration markers.
+- ✅ **Track Mute & Solo**: Track states mirrored directly.
+- ✅ **Clip Retime & Speed**: Playback velocity (slow-motion / fast-forward) scaled to Resolve cuts.
+- ✅ **Track Volume (dB) & Pan**: Audio mixer parameters extracted.
+
+---
 
 ### Workflow 1: VEGAS Pro → DaVinci Resolve
 1. In VEGAS Pro: Go to **Tools → Scripting → Send to DaVinci Resolve**.
-2. Inside Resolve: The timeline is built automatically with 100% online media and zero gaps! (Or run **Workspace → Scripts → ImportFromVegas**).
+2. **Instant Sync**: The bridge automatically creates and populates your timeline inside DaVinci Resolve with zero gaps and all media online!
+   *(Or click **🔗 Sync VEGAS → Resolve** inside the desktop app).*
 
-### Workflow 2: DaVinci Resolve → VEGAS Pro
+### Workflow 2: DaVinci Resolve → VEGAS Pro (Round-Trip)
 1. In DaVinci Resolve: Go to **Workspace → Scripts → ExportToVegas**.
 2. In VEGAS Pro: Go to **Tools → Scripting → Receive from DaVinci Resolve**.
-3. All cuts, grades-ready clips, and audio tracks sync back into VEGAS Pro!
+3. Your timeline in VEGAS Pro is updated with the graded cuts!
+   *(Or click **🔄 Sync Resolve → VEGAS** inside the desktop app).*
 
 ---
+
 
 
 ## 📥 Installation

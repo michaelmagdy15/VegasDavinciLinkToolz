@@ -28,6 +28,13 @@ from core.converter import (
     convert_resolve_to_vegas,
     ConversionResult,
 )
+from core.live_bridge import (
+    import_timeline_from_json,
+    export_timeline_to_json,
+    xml_to_timeline_json,
+    is_resolve_running,
+)
+from pathlib import Path
 
 
 class TimelineBridgeApp:
@@ -61,6 +68,7 @@ class TimelineBridgeApp:
         self._build_file_input()
         self._build_remap_section()
         self._build_convert_button()
+        self._build_live_link_section()
         self._build_log_panel()
         self._build_status_bar()
 
@@ -231,6 +239,48 @@ class TimelineBridgeApp:
         )
         self.convert_btn.pack(fill="x", ipady=4)
 
+    def _build_live_link_section(self):
+        """Live synchronization controls between VEGAS Pro and DaVinci Resolve."""
+        frame = tk.Frame(self.root, bg=COLORS["bg_primary"])
+        frame.pack(fill="x", padx=16, pady=(6, 8))
+
+        SectionHeader(frame, text="⚡ Direct Live Link (No XML Needed)").pack(anchor="w")
+
+        btn_row = tk.Frame(frame, bg=COLORS["bg_primary"])
+        btn_row.pack(fill="x", pady=(6, 0))
+
+        self.live_send_btn = tk.Button(
+            btn_row,
+            text="🔗  Sync VEGAS → Resolve",
+            command=self._live_sync_vegas_to_resolve,
+            bg=COLORS["accent_blue"],
+            fg="#ffffff",
+            activebackground=COLORS["accent_hover"],
+            activeforeground="#ffffff",
+            font=("Segoe UI Bold", 10),
+            relief="flat",
+            cursor="hand2",
+            padx=12,
+            pady=6,
+        )
+        self.live_send_btn.pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+        self.live_recv_btn = tk.Button(
+            btn_row,
+            text="🔄  Sync Resolve → VEGAS",
+            command=self._live_sync_resolve_to_vegas,
+            bg=COLORS["bg_card"],
+            fg=COLORS["text_primary"],
+            activebackground=COLORS["bg_input"],
+            activeforeground="#ffffff",
+            font=("Segoe UI Bold", 10),
+            relief="flat",
+            cursor="hand2",
+            padx=12,
+            pady=6,
+        )
+        self.live_recv_btn.pack(side="right", fill="x", expand=True, padx=(6, 0))
+
     def _build_log_panel(self):
         """Scrollable log output."""
         self.log_panel = LogPanel(self.root)
@@ -368,6 +418,81 @@ class TimelineBridgeApp:
         self.convert_btn.configure(state="normal", text="⚡  Convert Timeline")
         self.status_bar.set_error(f"Unexpected error: {error}")
         self.log_panel.log("error", f"Unexpected error: {error}")
+
+    def _live_sync_vegas_to_resolve(self):
+        """Sync VEGAS timeline directly into DaVinci Resolve."""
+        if self.is_converting:
+            return
+
+        self.is_converting = True
+        self.status_bar.set_processing()
+        self.log_panel.clear()
+        self.log_panel.log("info", "Starting Live Link: VEGAS Pro → DaVinci Resolve...")
+
+        def run_sync():
+            try:
+                bridge_dir = Path.home() / ".timeline_bridge"
+                json_path = bridge_dir / "vegas_timeline.json"
+
+                input_path = self.input_path_var.get().strip()
+                if input_path and os.path.isfile(input_path) and input_path != self.file_entry.placeholder:
+                    self.root.after(0, lambda: self.log_panel.log("info", f"Reading XML manifest: {input_path}"))
+                    xml_to_timeline_json(input_path, str(json_path))
+
+                if not json_path.exists():
+                    msg = "No VEGAS timeline manifest found. Please click 'Send to DaVinci Resolve' in VEGAS Pro first."
+                    self.root.after(0, lambda: self._on_live_sync_done(False, msg))
+                    return
+
+                def log_fn(msg):
+                    tag = "success" if "[OK]" in msg else ("error" if "[ERROR]" in msg else "info")
+                    self.root.after(0, lambda: self.log_panel.log(tag, msg))
+
+                success = import_timeline_from_json(str(json_path), log_fn=log_fn)
+                if success:
+                    self.root.after(0, lambda: self._on_live_sync_done(True, "✓ Synchronized VEGAS timeline to DaVinci Resolve (Zero Gaps)!"))
+                else:
+                    self.root.after(0, lambda: self._on_live_sync_done(False, "Failed to synchronize to DaVinci Resolve."))
+            except Exception as e:
+                self.root.after(0, lambda: self._on_live_sync_done(False, f"Live Sync Error: {e}"))
+
+        threading.Thread(target=run_sync, daemon=True).start()
+
+    def _live_sync_resolve_to_vegas(self):
+        """Export active DaVinci Resolve timeline so VEGAS Pro can receive it."""
+        if self.is_converting:
+            return
+
+        self.is_converting = True
+        self.status_bar.set_processing()
+        self.log_panel.clear()
+        self.log_panel.log("info", "Starting Live Link: DaVinci Resolve → VEGAS Pro...")
+
+        def run_export():
+            try:
+                def log_fn(msg):
+                    tag = "success" if "[OK]" in msg else ("error" if "[ERROR]" in msg else "info")
+                    self.root.after(0, lambda: self.log_panel.log(tag, msg))
+
+                out_path = export_timeline_to_json(log_fn=log_fn)
+                if out_path:
+                    msg = "✓ Exported from Resolve! Click 'Receive from DaVinci Resolve' in VEGAS Pro to apply."
+                    self.root.after(0, lambda: self._on_live_sync_done(True, msg))
+                else:
+                    self.root.after(0, lambda: self._on_live_sync_done(False, "Failed to export from DaVinci Resolve."))
+            except Exception as e:
+                self.root.after(0, lambda: self._on_live_sync_done(False, f"Live Sync Error: {e}"))
+
+        threading.Thread(target=run_export, daemon=True).start()
+
+    def _on_live_sync_done(self, success: bool, message: str):
+        self.is_converting = False
+        if success:
+            self.status_bar.set_success(message)
+            self.log_panel.log("success", message)
+        else:
+            self.status_bar.set_error(message)
+            self.log_panel.log("error", message)
 
     # ======================================================================
     # Launch

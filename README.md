@@ -27,11 +27,34 @@ Going the other way is just as bad — Resolve exports `file://localhost/` URIs 
 
 ## ✅ The Solution
 
-**Timeline Bridge** is a free, open-source desktop tool that fixes all of this in one click. Drop in your XML, hit Convert, and get a clean file that imports perfectly.
+**Timeline Bridge** provides two ways to synchronize your projects:
+1. **⚡ Direct Live Link (No XML Needed)**: Direct in-app plugins for VEGAS Pro and DaVinci Resolve that stream cuts, tracks, and media bidirectionally with one click.
+2. **📁 XML Sanitizer**: Drop in your exported XML, hit Convert, and get a clean file that imports into either NLE without media offline or timecode errors.
 
-**Zero dependencies. Zero cost. Zero internet required.** Just Python and your XML.
+**Zero dependencies. Zero cost. Zero internet required.**
 
 ---
+
+## ⚡ Direct Live Link (Bidirectional Plugins)
+
+Connects VEGAS Pro (2026.0, 23.0, 22.0) and DaVinci Resolve Studio (21 / 20 / 19) directly without manual file exporting:
+
+### 1-Minute Setup
+Double-click `install_plugins.bat` to automatically install the plugins into:
+- VEGAS Pro: `Tools → Scripting`
+- DaVinci Resolve: `Workspace → Scripts`
+
+### Workflow 1: VEGAS Pro → DaVinci Resolve
+1. In VEGAS Pro: Go to **Tools → Scripting → Send to DaVinci Resolve**.
+2. Inside Resolve: The timeline is built automatically with 100% online media and zero gaps! (Or run **Workspace → Scripts → ImportFromVegas**).
+
+### Workflow 2: DaVinci Resolve → VEGAS Pro
+1. In DaVinci Resolve: Go to **Workspace → Scripts → ExportToVegas**.
+2. In VEGAS Pro: Go to **Tools → Scripting → Receive from DaVinci Resolve**.
+3. All cuts, grades-ready clips, and audio tracks sync back into VEGAS Pro!
+
+---
+
 
 ## 📥 Installation
 

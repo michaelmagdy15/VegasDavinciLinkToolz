@@ -308,12 +308,20 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
     log_fn("[INFO] Aligning clip timecodes to 00:00:00:00...")
     align_media_pool_timecodes(folder=sub_folder, target_timecode="00:00:00:00")
 
-    # Map filename to MediaPoolItem
+    # Map filename to MediaPoolItem across all Media Pool folders
     clip_map = {}
+    def collect_clips(folder):
+        for c in folder.GetClipList():
+            clip_map[c.GetName()] = c
+        for sub in folder.GetSubFolderList():
+            collect_clips(sub)
+
+    collect_clips(root_folder)
+    # Ensure VEGAS Live Import clips take highest precedence
     for c in sub_folder.GetClipList():
         clip_map[c.GetName()] = c
 
-    log_fn(f"[INFO] Media Pool items ready: {len(clip_map)}")
+    log_fn(f"[INFO] Media Pool items available: {len(clip_map)}")
 
     # 4. Create timeline
     timeline_name = f"{project_name} (VEGAS Sync)"
@@ -323,7 +331,8 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
         return False
 
     proj.SetCurrentTimeline(timeline)
-    log_fn(f"[OK] Created timeline: '{timeline_name}'")
+    tl_start = timeline.GetStartFrame() or 0
+    log_fn(f"[OK] Created timeline: '{timeline_name}' (StartFrame: {tl_start})")
 
     # 5. Build clips into timeline
     clips_added = 0
@@ -343,19 +352,35 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
 
             start_ms = clip.get("timeline_start_ms", 0.0)
             len_ms = clip.get("timeline_length_ms", 0.0)
-            in_ms = clip.get("source_in_ms", 0.0)
+            # Determine source clip frame rate for accurate source in/out calculation
+            clip_fps = fps
+            try:
+                clip_props = pool_item.GetClipProperty()
+                if clip_props:
+                    for key in ["FPS", "Frame Rate", "Video Frame Rate"]:
+                        if key in clip_props and clip_props[key]:
+                            raw_val = str(clip_props[key]).split()[0]
+                            fps_val = float(raw_val)
+                            if fps_val > 0:
+                                clip_fps = fps_val
+                                break
+            except Exception:
+                clip_fps = fps
 
-            # Convert ms to frames
+            # Source frames in/out must use the source clip's native FPS
+            in_frame = int(round((in_ms / 1000.0) * clip_fps))
+            duration_src_frames = int(round((len_ms / 1000.0) * clip_fps))
+            out_frame = in_frame + duration_src_frames
+
+            # Timeline recordFrame uses sequence FPS and timeline StartFrame offset
             start_frame = int(round((start_ms / 1000.0) * fps))
-            duration_frames = int(round((len_ms / 1000.0) * fps))
-            in_frame = int(round((in_ms / 1000.0) * fps))
-            out_frame = in_frame + duration_frames
+            record_frame = tl_start + start_frame
 
             clip_info = {
                 "mediaPoolItem": pool_item,
                 "startFrame": in_frame,
                 "endFrame": out_frame,
-                "recordFrame": start_frame,
+                "recordFrame": record_frame,
                 "trackIndex": track_idx,
                 "mediaType": 1 if is_video else 2,
             }
@@ -366,5 +391,123 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
             except Exception:
                 pass
 
-    log_fn(f"[OK] Timeline built with {clips_added} cuts synchronized live!")
+    log_fn(f"[OK] Timeline built with {clips_added} cuts synchronized live (zero gap aligned)!")
     return True
+
+
+def export_timeline_to_json(output_json_path: Optional[str] = None, log_fn=print) -> Optional[str]:
+    """Export the active DaVinci Resolve timeline to universal JSON for VEGAS Pro.
+
+    Enables two-way round-trip synchronization between Resolve and VEGAS Pro.
+    """
+    resolve = get_resolve_app()
+    if not resolve:
+        log_fn("[ERROR] Could not connect to DaVinci Resolve.")
+        return None
+
+    pm = resolve.GetProjectManager()
+    proj = pm.GetCurrentProject()
+    if not proj:
+        log_fn("[ERROR] No project currently open in DaVinci Resolve.")
+        return None
+
+    timeline = proj.GetCurrentTimeline()
+    if not timeline:
+        log_fn("[ERROR] No timeline currently active in DaVinci Resolve.")
+        return None
+
+    tl_name = timeline.GetName()
+    tl_start = timeline.GetStartFrame() or 0
+    fps_setting = timeline.GetSetting("timelineFrameRate")
+    try:
+        fps = float(fps_setting) if fps_setting else 29.97
+    except ValueError:
+        fps = 29.97
+
+    log_fn(f"[INFO] Exporting active Resolve timeline '{tl_name}' ({fps:.2f} fps)...")
+
+    tracks = []
+    # Video tracks
+    v_track_count = timeline.GetTrackCount("video")
+    for t_idx in range(1, v_track_count + 1):
+        items = timeline.GetItemListInTrack("video", t_idx)
+        clips = []
+        for it in items:
+            mp_item = it.GetMediaPoolItem()
+            mpath = mp_item.GetClipProperty("File Path") if mp_item else ""
+            clip_fps = fps
+            if mp_item:
+                try:
+                    c_props = mp_item.GetClipProperty()
+                    if c_props and "FPS" in c_props:
+                        clip_fps = float(c_props["FPS"])
+                except Exception:
+                    clip_fps = fps
+
+            start_f = it.GetStart() - tl_start
+            dur_f = it.GetDuration()
+            left_offset = it.GetLeftOffset() or 0
+
+            clips.append({
+                "name": it.GetName(),
+                "media_path": mpath,
+                "timeline_start_ms": (start_f / fps) * 1000.0,
+                "timeline_length_ms": (dur_f / fps) * 1000.0,
+                "source_in_ms": (left_offset / clip_fps) * 1000.0,
+            })
+
+        tracks.append({
+            "name": timeline.GetTrackName("video", t_idx) or f"Video {t_idx}",
+            "index": t_idx - 1,
+            "is_video": True,
+            "is_audio": False,
+            "clips": clips,
+        })
+
+    # Audio tracks
+    a_track_count = timeline.GetTrackCount("audio")
+    for t_idx in range(1, a_track_count + 1):
+        items = timeline.GetItemListInTrack("audio", t_idx)
+        clips = []
+        for it in items:
+            mp_item = it.GetMediaPoolItem()
+            mpath = mp_item.GetClipProperty("File Path") if mp_item else ""
+
+            start_f = it.GetStart() - tl_start
+            dur_f = it.GetDuration()
+            left_offset = it.GetLeftOffset() or 0
+
+            clips.append({
+                "name": it.GetName(),
+                "media_path": mpath,
+                "timeline_start_ms": (start_f / fps) * 1000.0,
+                "timeline_length_ms": (dur_f / fps) * 1000.0,
+                "source_in_ms": (left_offset / fps) * 1000.0,
+            })
+
+        tracks.append({
+            "name": timeline.GetTrackName("audio", t_idx) or f"Audio {t_idx}",
+            "index": t_idx - 1,
+            "is_video": False,
+            "is_audio": True,
+            "clips": clips,
+        })
+
+    data = {
+        "project_name": tl_name,
+        "frame_rate": fps,
+        "source": "DaVinci Resolve",
+        "tracks": tracks,
+    }
+
+    if not output_json_path:
+        bridge_dir = Path.home() / ".timeline_bridge"
+        bridge_dir.mkdir(parents=True, exist_ok=True)
+        output_json_path = str(bridge_dir / "resolve_timeline.json")
+
+    with open(output_json_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+    log_fn(f"[OK] Exported Resolve timeline to: {output_json_path}")
+    return output_json_path
+

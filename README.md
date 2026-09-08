@@ -85,9 +85,32 @@ Tired of scrubbing through hundreds of gigabytes of raw drone and camera footage
 Connects **VEGAS Pro** (2026.0, 23.0, 22.0, 21.0) and **DaVinci Resolve Studio** (21 / 20 / 19) directly without manual file exporting:
 
 ### 1-Minute Setup
-Double-click `install_plugins.bat` to automatically install the plugins:
-- **VEGAS Pro**: Adds `Send to DaVinci Resolve`, `Receive from DaVinci Resolve`, and `Import AI Selects` to the `Tools → Scripting` menu.
-- **DaVinci Resolve**: Adds `ImportFromVegas` and `ExportToVegas` to the `Workspace → Scripts` menu.
+Double-click `install_plugins.bat` to automatically install the full 14-script automation suite:
+- **VEGAS Pro**: Installs into `Tools → Scripting` across all versions (2026.0, 23.0, 22.0, 21.0, 20.0).
+- **DaVinci Resolve**: Installs `ImportFromVegas` and `ExportToVegas` into `Workspace → Scripts`.
+
+---
+
+## 🛠️ VEGAS Pro Power Editing & Automation Suite
+
+Every script runs natively inside VEGAS Pro via **Tools → Scripting** with zero external dependencies:
+
+| Script Name | Menu Item | Description |
+| :--- | :--- | :--- |
+| `ToggleProxies.cs` | **Toggle Proxies vs RAW** | 1-Click toggle between `Proxy\file.mov` and native 4K/6K RAW files in parent folder. |
+| `CloseTimelineGaps.cs` | **Close Timeline Gaps** | Ripple gap closer: eliminates all black gaps and dead air across selected or all tracks. |
+| `AutoExposureFix.cs` | **Auto Exposure Fix** | Automatically balances exposure: lifts crushed shadows & tames blown sea/sky highlights. |
+| `AutoSpeedRamp.cs` | **Auto Speed Ramp** | Injects high-energy action speed ramp (300% entry $\rightarrow$ 40% slow-mo trick $\rightarrow$ 100% landing). |
+| `ImpactSnapZoom.cs` | **Impact Snap Zoom** | 6-frame 114% punch-in snap zoom on trick landings and bass drops via Pan/Crop keyframes. |
+| `BatchFlashTransitions.cs`| **Batch Flash Transitions** | Inserts 6-frame white flash or high-energy fast-cut transitions across adjacent clips. |
+| `BatchAudioFades.cs` | **Batch Audio Fades** | Injects 10ms anti-pop / click micro-fades to heads and tails of all audio cuts. |
+| `ColorCodeFootage.cs` | **Color Code Footage** | Classifies and tags clips by frame rate (120fps slow-mo, 60fps sports, 24fps cinema). |
+| `CleanMediaPool.cs` | **Clean Media Pool** | Purges all unused media files from the `.veg` project to maximize stability and speed. |
+| `RenderRegionsAsClips.cs` | **Render Regions as Clips** | Batch renders each timeline region into an individual video file named after the region. |
+| `ClearMarkers.cs` | **Clear All Markers** | 1-Click clean up dialog to purge all markers and regions from the active timeline. |
+| `ImportAISelects.cs` | **Import AI Selects** | Imports AI-scouted highlight cuts onto organized, stacked timeline tracks. |
+| `SendToResolve.cs` | **Send to DaVinci Resolve** | 1-Click live bridge export to DaVinci Resolve Studio. |
+| `ReceiveFromResolve.cs` | **Receive from DaVinci Resolve** | 1-Click live bridge import back to VEGAS Pro. |
 
 ---
 

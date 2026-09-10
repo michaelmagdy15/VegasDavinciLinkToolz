@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "VegasScoutUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "VegasScoutUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

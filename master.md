@@ -176,11 +176,56 @@ Add to `%APPDATA%\Claude\claude_desktop_config.json`:
 
 ---
 
-## 6. XML Cleaner & Standalone Desktop GUI
+## 6. Desktop GUIs (WinUI 3 & XML Cleaner)
 
+### A. Vegas Scout AI — Native Windows 11 WinUI 3 Desktop App (`apps/VegasScoutUI`)
+A standalone, high-performance desktop application built with **.NET 9** and the **Windows App SDK (WinUI 3)** featuring Windows 11 Fluent Design and dark mode.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│  🎬 Vegas Scout AI [VEGAS PRO 2026]     [GPU: RTX 4080 CUDA NVDEC]     │
+├────────────────────────────────────────────────────────────────────────┤
+│  📁 Source Footage Directory:                                          │
+│     [  Drag and drop your raw footage folder here or click Browse   ]  │
+│     Path: F:\Arrow\arrow kite surf 2\sorted 2\drone                   │
+│     [146 video files found]  [3 location subfolders]                   │
+├────────────────────────────────────────────────────────────────────────┤
+│  ⚙️ Culling & Promo Settings:                                          │
+│     Target Cut Duration: [────●────────] 3.5s                         │
+│     Max Cuts Per Long Take: [──────●────] 3 cuts                       │
+│     Track Layout: [Separate Tracks by Location / Folder (Recommended)] │
+│     Hardware Acceleration: [ON] NVIDIA CUDA & NVDEC Decoding           │
+├────────────────────────────────────────────────────────────────────────┤
+│  [⚡ Start AI Culling]  [Cancel]                         Progress: 75% │
+│  [████████████████████████████████░░░░░░░░░░]                          │
+│  Scouting clip 110 of 146: DJI_2026... (215 cuts detected)             │
+├────────────────────────────────────────────────────────────────────────┤
+│  Detected Action & Promo Cuts (274 Cuts)               [Search Cuts...]│
+│  • DJI_20260820142452_0001 (Cut 1)  [Dahab]  00:00:14.2  3.5s  [95%]   │
+│  • DJI_20260806153550_0015 (Cut 2)  [Hurg.]  00:01:02.8  3.5s  [89%]   │
+│  • DJI_20260804210737_0001 (Cut 1)  [Sokh.]  00:00:08.4  3.5s  [92%]   │
+├────────────────────────────────────────────────────────────────────────┤
+│  Completed in 10.8 min! 274 cuts (15.9 min) saved.                     │
+│  [📁 Open Manifest]                [🎬 Send to VEGAS Pro 2026]         │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Key Architecture & Highlights:
+1. **Unpackaged Standalone Executable**:
+   Built with `<WindowsPackageType>None</WindowsPackageType>`, producing a portable `VegasScoutUI.exe` that runs without MSIX installer friction.
+2. **Subprocess Streaming JSON Bridge**:
+   Communicates with `core/scout_cli.py` via real-time JSON event streams (`stdout`), driving 60fps progress bars and live cut discovery.
+3. **Interactive Selects Gallery**:
+   Live `ListView` showing clip names, source timestamps (`00:01:23.4`), cut duration (`3.5s`), location tracks, and action energy badges.
+4. **1-Click Launch**:
+   Run `launch_scout_ui.bat` to launch the application.
+
+---
+
+### B. XML Cleaner & Standalone Desktop GUI (`gui/app.py`)
 For workflows where XML exchange is specifically required, the repository includes a Python-powered XML sanitization engine (`core/xml_cleaner.py`) and a desktop application (`gui/app.py`).
 
-### Sanitization Pipeline:
+#### Sanitization Pipeline:
 1. **URI Normalization**: Converts Windows paths (`C:\Media\clip.mp4`) to standard URIs (`file://localhost/C:/Media/clip.mp4`) and vice versa.
 2. **Proprietary Metadata Scrubbing**: Strips non-standard XML tags injected by VEGAS (`<trackmotion>`, `<pan>`, `<magixfx>`) that cause Resolve import crashes.
 3. **Framerate Healing**: Ensures every `<rate>` tag specifies matching `<timebase>` and `<ntsc>` flags.

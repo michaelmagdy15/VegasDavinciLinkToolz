@@ -58,7 +58,7 @@ public class EntryPoint
             {
                 DialogResult choice = MessageBox.Show(
                     "Previous AI Selects were detected on your timeline.\n\n" +
-                    "• Click YES to REPLACE existing select tracks with the full 570 cuts fresh.\n" +
+                    string.Format("• Click YES to REPLACE existing select tracks with the new {0} cuts fresh.\n", clips.Count) +
                     "• Click NO to APPEND the new cuts to the end of the existing tracks.\n" +
                     "• Click CANCEL to abort without importing.\n\n" +
                     "(Your rough cut is completely safe and will never be touched).",
@@ -90,12 +90,26 @@ public class EntryPoint
 
             foreach (SelectClip c in clips)
             {
-                if (!File.Exists(c.MediaPath))
+                string resolvedPath = c.MediaPath;
+                if (!File.Exists(resolvedPath))
+                {
+                    try
+                    {
+                        string unesc = Regex.Unescape(resolvedPath);
+                        if (File.Exists(unesc))
+                        {
+                            resolvedPath = unesc;
+                        }
+                    }
+                    catch {}
+                }
+
+                if (!File.Exists(resolvedPath))
                 {
                     continue;
                 }
 
-                Media media = Media.CreateInstance(vegas.Project, c.MediaPath);
+                Media media = Media.CreateInstance(vegas.Project, resolvedPath);
                 if (media == null)
                 {
                     continue;
@@ -213,8 +227,16 @@ public class EntryPoint
                 double.TryParse(sourceInStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out inMs);
                 double.TryParse(lengthStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out lenMs);
 
+                string cleanPath = mediaPath.Replace(@"\\", @"\");
+                try
+                {
+                    string unescaped = Regex.Unescape(cleanPath);
+                    if (File.Exists(unescaped)) cleanPath = unescaped;
+                }
+                catch {}
+
                 SelectClip sc = new SelectClip();
-                sc.MediaPath = mediaPath.Replace(@"\\", @"\");
+                sc.MediaPath = cleanPath;
                 sc.SourceInMs = inMs;
                 sc.LengthMs = lenMs;
                 sc.Label = label;

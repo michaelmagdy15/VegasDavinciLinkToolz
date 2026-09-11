@@ -25,7 +25,11 @@ def main():
         print(f"[Error] Manifest not found: {json_path}")
         return
 
-    import_timeline_from_json(str(json_path), log_fn=print)
+    success = import_timeline_from_json(str(json_path), log_fn=print)
+    if not success:
+        print("[Notice] Could not connect directly via background IPC.")
+        print("[Notice] Please run 'Workspace > Scripts > ImportFromVegas' inside DaVinci Resolve,")
+        print("[Notice] or import C:\\Users\\Mi5a\\.timeline_bridge\\Promo_Arrow_FinalCUTS.xml via File > Import > Timeline.")
 
 if __name__ == "__main__":
     main()

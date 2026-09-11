@@ -68,10 +68,67 @@ public class EntryPoint
             sb.AppendLine("  \"tracks\": [");
             List<string> trackJsonList = new List<string>();
 
+            Dictionary<TrackEventGroup, int> groupMap = new Dictionary<TrackEventGroup, int>();
+            int nextGroupId = 1;
+
             foreach (Track track in vegas.Project.Tracks)
             {
                 bool isVideo = track.IsVideo();
                 bool isAudio = track.IsAudio();
+                bool isAdjustment = false;
+                string compositeMode = "SourceAlpha";
+                float compositeLevel = 1.0f;
+
+                double trackMotionPosX = 0.0;
+                double trackMotionPosY = 0.0;
+                double trackMotionScaleX = 1.0;
+                double trackMotionScaleY = 1.0;
+                double trackMotionRot = 0.0;
+
+                if (isVideo)
+                {
+                    VideoTrack vt = track as VideoTrack;
+                    if (vt != null)
+                    {
+                        isAdjustment = vt.IsAdjustmentTrack;
+                        compositeMode = vt.CompositeMode.ToString();
+                        compositeLevel = vt.CompositeLevel;
+
+                        if (vt.TrackMotion != null && vt.TrackMotion.MotionKeyframes != null && vt.TrackMotion.MotionKeyframes.Count > 0)
+                        {
+                            TrackMotionKeyframe tmkf = vt.TrackMotion.MotionKeyframes[0];
+                            trackMotionPosX = tmkf.PositionX;
+                            trackMotionPosY = tmkf.PositionY;
+                            trackMotionRot = tmkf.RotationZ;
+
+                            if (vegas.Project.Video.Width > 0 && tmkf.Width > 0)
+                            {
+                                trackMotionScaleX = (double)vegas.Project.Video.Width / tmkf.Width;
+                            }
+                            if (vegas.Project.Video.Height > 0 && tmkf.Height > 0)
+                            {
+                                trackMotionScaleY = (double)vegas.Project.Video.Height / tmkf.Height;
+                            }
+                        }
+                    }
+                }
+
+                // Collect Track Effects & LUTs
+                List<string> trackFxList = new List<string>();
+                foreach (Effect fx in track.Effects)
+                {
+                    string fxName = fx.PlugIn != null ? fx.PlugIn.Name : (fx.Description ?? "Unknown");
+                    string fxPreset = "";
+                    try
+                    {
+                        if (fx.CurrentPreset != null)
+                        {
+                            fxPreset = fx.CurrentPreset.Name ?? "";
+                        }
+                    }
+                    catch {}
+                    trackFxList.Add(string.Format("{{\"name\": \"{0}\", \"preset\": \"{1}\"}}", EscapeJson(fxName), EscapeJson(fxPreset)));
+                }
 
                 float volumeDb = 0f;
                 float pan = 0f;
@@ -92,6 +149,15 @@ public class EntryPoint
                 tb.AppendFormat("      \"index\": {0},\n", track.Index);
                 tb.AppendFormat("      \"is_video\": {0},\n", isVideo ? "true" : "false");
                 tb.AppendFormat("      \"is_audio\": {0},\n", isAudio ? "true" : "false");
+                tb.AppendFormat("      \"is_adjustment\": {0},\n", isAdjustment ? "true" : "false");
+                tb.AppendFormat("      \"composite_mode\": \"{0}\",\n", EscapeJson(compositeMode));
+                tb.AppendFormat("      \"composite_level\": {0:F4},\n", compositeLevel);
+                tb.AppendFormat("      \"track_motion_x\": {0:F2},\n", trackMotionPosX);
+                tb.AppendFormat("      \"track_motion_y\": {0:F2},\n", trackMotionPosY);
+                tb.AppendFormat("      \"track_motion_scale_x\": {0:F4},\n", trackMotionScaleX);
+                tb.AppendFormat("      \"track_motion_scale_y\": {0:F4},\n", trackMotionScaleY);
+                tb.AppendFormat("      \"track_motion_rot\": {0:F2},\n", trackMotionRot);
+                tb.AppendFormat("      \"effects\": [{0}],\n", string.Join(", ", trackFxList.ToArray()));
                 tb.AppendFormat("      \"mute\": {0},\n", track.Mute ? "true" : "false");
                 tb.AppendFormat("      \"solo\": {0},\n", track.Solo ? "true" : "false");
                 tb.AppendFormat("      \"volume_db\": {0:F2},\n", volumeDb);
@@ -106,6 +172,7 @@ public class EntryPoint
                     string mediaPath = "";
                     string clipName = "";
                     double inOffsetMs = 0;
+                    bool isReversed = (ev.PlaybackRate < 0);
 
                     if (take != null)
                     {
@@ -113,20 +180,74 @@ public class EntryPoint
                         if (take.Media != null)
                         {
                             mediaPath = take.MediaPath ?? "";
+                            if (string.IsNullOrEmpty(mediaPath) || !File.Exists(mediaPath))
+                            {
+                                if (!string.IsNullOrEmpty(take.Media.FilePath) && File.Exists(take.Media.FilePath))
+                                {
+                                    mediaPath = take.Media.FilePath;
+                                }
+                            }
                         }
                         inOffsetMs = take.Offset.ToMilliseconds();
+                        if (clipName.IndexOf("Reverse", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            isReversed = true;
+                        }
+                    }
+
+                    // Skip generated clips without valid disk media unless it's an adjustment/title
+                    if (string.IsNullOrEmpty(mediaPath) || !File.Exists(mediaPath))
+                    {
+                        continue;
                     }
 
                     double fadeInMs = ev.FadeIn != null ? ev.FadeIn.Length.ToMilliseconds() : 0.0;
                     double fadeOutMs = ev.FadeOut != null ? ev.FadeOut.Length.ToMilliseconds() : 0.0;
-                    double playbackRate = ev.PlaybackRate;
+                    string fadeInCurve = ev.FadeIn != null ? ev.FadeIn.Curve.ToString() : "None";
+                    string fadeOutCurve = ev.FadeOut != null ? ev.FadeOut.Curve.ToString() : "None";
+                    float fadeGain = ev.FadeIn != null ? ev.FadeIn.Gain : 1.0f;
+                    double playbackRate = Math.Abs(ev.PlaybackRate);
+                    if (playbackRate <= 0.001) playbackRate = 1.0;
 
-                    // Extract Pan/Crop Zoom & Rotation
+                    // Group / Link tracking
+                    int groupId = 0;
+                    if (ev.Group != null)
+                    {
+                        if (!groupMap.ContainsKey(ev.Group))
+                        {
+                            groupMap[ev.Group] = nextGroupId++;
+                        }
+                        groupId = groupMap[ev.Group];
+                    }
+                    else if (ev.SyncEvent != null)
+                    {
+                        long syncKey = Math.Min(ev.EventID, ev.SyncEvent.EventID);
+                        groupId = (int)(Math.Abs(syncKey) % 1000000) + 100000;
+                    }
+                    else if (!string.IsNullOrEmpty(mediaPath))
+                    {
+                        groupId = Math.Abs((mediaPath + "_" + ev.Start.ToMilliseconds().ToString("F0")).GetHashCode());
+                    }
+
+                    // Audio event properties
+                    double eventVolume = 0.0;
+                    AudioEvent ae = ev as AudioEvent;
+                    if (ae != null)
+                    {
+                        eventVolume = ae.NormalizeGain;
+                    }
+
+                    // Extract Pan/Crop Zoom, Pan, Rotation & Keyframes
                     double rotationAngle = 0.0;
                     double zoomX = 1.0;
                     double zoomY = 1.0;
                     double panX = 0.0;
                     double panY = 0.0;
+                    double cropLeft = 0.0;
+                    double cropRight = 0.0;
+                    double cropTop = 0.0;
+                    double cropBottom = 0.0;
+                    List<string> motionKfList = new List<string>();
 
                     VideoEvent ve = ev as VideoEvent;
                     if (ve != null && ve.VideoMotion != null && ve.VideoMotion.Keyframes.Count > 0)
@@ -134,24 +255,116 @@ public class EntryPoint
                         VideoMotionKeyframe kf = ve.VideoMotion.Keyframes[0];
                         rotationAngle = kf.Rotation;
 
+                        VideoStream vs = (take != null && take.MediaStream != null) ? take.MediaStream as VideoStream : null;
+                        int mediaW = vs != null ? vs.Width : vegas.Project.Video.Width;
+                        int mediaH = vs != null ? vs.Height : vegas.Project.Video.Height;
+                        if (mediaW <= 0) mediaW = 1920;
+                        if (mediaH <= 0) mediaH = 1080;
+
+                        double defCenterX = mediaW / 2.0;
+                        double defCenterY = mediaH / 2.0;
+
+                        double projAspect = (double)vegas.Project.Video.Width / (double)vegas.Project.Video.Height;
+                        double mediaAspect = (double)mediaW / (double)mediaH;
+                        double defCropW = mediaW;
+                        double defCropH = mediaH;
+
+                        if (mediaAspect > projAspect)
+                        {
+                            defCropH = mediaH;
+                            defCropW = mediaH * projAspect;
+                        }
+                        else
+                        {
+                            defCropW = mediaW;
+                            defCropH = mediaW / projAspect;
+                        }
+
                         if (kf.Bounds != null && kf.Bounds.TopRight != null && kf.Bounds.TopLeft != null && kf.Bounds.BottomLeft != null)
                         {
                             double bw = Math.Sqrt(Math.Pow(kf.Bounds.TopRight.X - kf.Bounds.TopLeft.X, 2) + Math.Pow(kf.Bounds.TopRight.Y - kf.Bounds.TopLeft.Y, 2));
-                            double bh = Math.Sqrt(Math.Pow(kf.Bounds.BottomLeft.X - kf.Bounds.TopLeft.X, 2) + Math.Pow(kf.Bounds.BottomLeft.Y - kf.Bounds.TopLeft.Y, 2));
-                            if (bw > 0.001 && vegas.Project.Video.Width > 0)
+
+                            if (bw > 1.0 && defCropW > 1.0)
                             {
-                                zoomX = (double)vegas.Project.Video.Width / bw;
-                            }
-                            if (bh > 0.001 && vegas.Project.Video.Height > 0)
-                            {
-                                zoomY = (double)vegas.Project.Video.Height / bh;
+                                double computedZoom = defCropW / bw;
+                                if (Math.Abs(computedZoom - 1.0) > 0.02)
+                                {
+                                    zoomX = computedZoom;
+                                    zoomY = computedZoom;
+                                }
                             }
                         }
 
                         if (kf.Center != null)
                         {
-                            panX = (double)kf.Center.X - (vegas.Project.Video.Width / 2.0);
-                            panY = (double)kf.Center.Y - (vegas.Project.Video.Height / 2.0);
+                            double shiftX = kf.Center.X - defCenterX;
+                            double shiftY = kf.Center.Y - defCenterY;
+
+                            if (Math.Abs(shiftX) > 2.0)
+                            {
+                                panX = (shiftX / defCropW) * vegas.Project.Video.Width;
+                            }
+                            if (Math.Abs(shiftY) > 2.0)
+                            {
+                                panY = -(shiftY / defCropH) * vegas.Project.Video.Height;
+                            }
+                        }
+
+                        // Collect multi-keyframe animations with full transform details
+                        if (ve.VideoMotion.Keyframes.Count > 1)
+                        {
+                            foreach (VideoMotionKeyframe mkf in ve.VideoMotion.Keyframes)
+                            {
+                                double kfZoom = 1.0;
+                                double kfPanX = 0.0;
+                                double kfPanY = 0.0;
+
+                                if (mkf.Bounds != null && mkf.Bounds.TopRight != null && mkf.Bounds.TopLeft != null)
+                                {
+                                    double kbw = Math.Sqrt(Math.Pow(mkf.Bounds.TopRight.X - mkf.Bounds.TopLeft.X, 2) + Math.Pow(mkf.Bounds.TopRight.Y - mkf.Bounds.TopLeft.Y, 2));
+                                    if (kbw > 1.0 && defCropW > 1.0)
+                                    {
+                                        kfZoom = defCropW / kbw;
+                                    }
+                                }
+
+                                if (mkf.Center != null)
+                                {
+                                    double ksx = mkf.Center.X - defCenterX;
+                                    double ksy = mkf.Center.Y - defCenterY;
+                                    if (Math.Abs(ksx) > 2.0)
+                                    {
+                                        kfPanX = (ksx / defCropW) * vegas.Project.Video.Width;
+                                    }
+                                    if (Math.Abs(ksy) > 2.0)
+                                    {
+                                        kfPanY = -(ksy / defCropH) * vegas.Project.Video.Height;
+                                    }
+                                }
+
+                                motionKfList.Add(string.Format("{{\"position_ms\": {0:F2}, \"rotation\": {1:F2}, \"zoom\": {2:F4}, \"pan_x\": {3:F2}, \"pan_y\": {4:F2}, \"smoothness\": {5:F2}}}",
+                                    mkf.Position.ToMilliseconds(), mkf.Rotation, kfZoom, kfPanX, kfPanY, mkf.Smoothness));
+                            }
+                        }
+                    }
+
+                    // Collect Event FX & LUTs
+                    List<string> eventFxList = new List<string>();
+                    if (ve != null)
+                    {
+                        foreach (Effect fx in ve.Effects)
+                        {
+                            string fxName = fx.PlugIn != null ? fx.PlugIn.Name : (fx.Description ?? "Unknown");
+                            string fxPreset = "";
+                            try
+                            {
+                                if (fx.CurrentPreset != null)
+                                {
+                                    fxPreset = fx.CurrentPreset.Name ?? "";
+                                }
+                            }
+                            catch {}
+                            eventFxList.Add(string.Format("{{\"name\": \"{0}\", \"preset\": \"{1}\"}}", EscapeJson(fxName), EscapeJson(fxPreset)));
                         }
                     }
 
@@ -164,12 +377,24 @@ public class EntryPoint
                     cb.AppendFormat("          \"source_in_ms\": {0:F2},\n", inOffsetMs);
                     cb.AppendFormat("          \"fade_in_ms\": {0:F2},\n", fadeInMs);
                     cb.AppendFormat("          \"fade_out_ms\": {0:F2},\n", fadeOutMs);
+                    cb.AppendFormat("          \"fade_in_curve\": \"{0}\",\n", EscapeJson(fadeInCurve));
+                    cb.AppendFormat("          \"fade_out_curve\": \"{0}\",\n", EscapeJson(fadeOutCurve));
+                    cb.AppendFormat("          \"fade_gain\": {0:F3},\n", fadeGain);
                     cb.AppendFormat("          \"playback_rate\": {0:F3},\n", playbackRate);
+                    cb.AppendFormat("          \"is_reversed\": {0},\n", isReversed ? "true" : "false");
                     cb.AppendFormat("          \"rotation_angle\": {0:F2},\n", rotationAngle);
                     cb.AppendFormat("          \"zoom_x\": {0:F4},\n", zoomX);
                     cb.AppendFormat("          \"zoom_y\": {0:F4},\n", zoomY);
                     cb.AppendFormat("          \"pan_x\": {0:F2},\n", panX);
                     cb.AppendFormat("          \"pan_y\": {0:F2},\n", panY);
+                    cb.AppendFormat("          \"crop_left\": {0:F2},\n", cropLeft);
+                    cb.AppendFormat("          \"crop_right\": {0:F2},\n", cropRight);
+                    cb.AppendFormat("          \"crop_top\": {0:F2},\n", cropTop);
+                    cb.AppendFormat("          \"crop_bottom\": {0:F2},\n", cropBottom);
+                    cb.AppendFormat("          \"group_id\": {0},\n", groupId);
+                    cb.AppendFormat("          \"volume\": {0:F2},\n", eventVolume);
+                    cb.AppendFormat("          \"motion_keyframes\": [{0}],\n", string.Join(", ", motionKfList.ToArray()));
+                    cb.AppendFormat("          \"effects\": [{0}],\n", string.Join(", ", eventFxList.ToArray()));
                     cb.AppendFormat("          \"mute\": {0}\n", ev.Mute ? "true" : "false");
                     cb.Append("        }");
                     clipJsonList.Add(cb.ToString());

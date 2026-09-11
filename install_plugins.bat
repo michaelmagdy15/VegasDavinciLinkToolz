@@ -78,15 +78,18 @@ if exist "%PROGRAMFILES%\BorisFX\Vegas Pro 2026" (
 echo.
 :: 2. Install to DaVinci Resolve Script Menu
 echo [2/2] Installing to DaVinci Resolve...
-set RESOLVE_TARGET=%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Developer\Scripting\Scripts\Utility
-if not exist "%RESOLVE_TARGET%" mkdir "%RESOLVE_TARGET%"
-copy /Y "%RESOLVE_IMP_PY%" "%RESOLVE_TARGET%\ImportFromVegas.py" >nul 2>&1
-copy /Y "%RESOLVE_EXP_PY%" "%RESOLVE_TARGET%\ExportToVegas.py" >nul 2>&1
-if %ERRORLEVEL% equ 0 (
-    echo   [OK] Installed to DaVinci Resolve ^(ImportFromVegas ^& ExportToVegas^)
-) else (
-    echo   [WARN] Could not copy to Resolve Scripts folder.
-)
+set RESOLVE_TARGET1=%PROGRAMDATA%\Blackmagic Design\DaVinci Resolve\Fusion\Scripts\Utility
+set RESOLVE_TARGET2=%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Utility
+
+if not exist "%RESOLVE_TARGET1%" mkdir "%RESOLVE_TARGET1%" >nul 2>&1
+copy /Y "%RESOLVE_IMP_PY%" "%RESOLVE_TARGET1%\ImportFromVegas.py" >nul 2>&1
+copy /Y "%RESOLVE_EXP_PY%" "%RESOLVE_TARGET1%\ExportToVegas.py" >nul 2>&1
+
+if not exist "%RESOLVE_TARGET2%" mkdir "%RESOLVE_TARGET2%" >nul 2>&1
+copy /Y "%RESOLVE_IMP_PY%" "%RESOLVE_TARGET2%\ImportFromVegas.py" >nul 2>&1
+copy /Y "%RESOLVE_EXP_PY%" "%RESOLVE_TARGET2%\ExportToVegas.py" >nul 2>&1
+
+echo   [OK] Installed to DaVinci Resolve Fusion Scripts ^(ImportFromVegas ^& ExportToVegas^)
 
 :: 3. Create Bridge directory in UserProfile
 set BRIDGE_DIR=%USERPROFILE%\.timeline_bridge

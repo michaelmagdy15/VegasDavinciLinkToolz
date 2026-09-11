@@ -23,6 +23,16 @@ def main():
         print("[ImportFromVegas] Please click 'Send to DaVinci Resolve' in VEGAS Pro first.")
         return
 
+    # Pass resolve reference to __main__ if defined by DaVinci Resolve script host
+    try:
+        import __main__
+        if "resolve" in globals() and not hasattr(__main__, "resolve"):
+            __main__.resolve = globals()["resolve"]
+        if "bmd" in globals() and not hasattr(__main__, "bmd"):
+            __main__.bmd = globals()["bmd"]
+    except Exception:
+        pass
+
     # Try to find core live_bridge
     repo_dir = Path(r"C:\Users\Mi5a\VegasDavinciLinkTool")
     if repo_dir.exists() and str(repo_dir) not in sys.path:

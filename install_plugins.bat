@@ -35,10 +35,11 @@ for %%V in (2026.0 23.0 22.0 21.0 20.0 19.0 18.0 17.0 16.0 15.0 14.0) do (
         copy /Y "%VEGAS_SRC%\BatchFlashTransitions.cs" "!TARGET_DIR!\Batch Flash Transitions.cs" >nul 2>&1
         copy /Y "%VEGAS_SRC%\BatchAudioFades.cs" "!TARGET_DIR!\Batch Audio Fades.cs" >nul 2>&1
         copy /Y "%VEGAS_SRC%\ColorCodeFootage.cs" "!TARGET_DIR!\Color Code Footage.cs" >nul 2>&1
+        copy /Y "%VEGAS_SRC%\DeepScanProject.cs" "!TARGET_DIR!\Deep Scan Project.cs" >nul 2>&1
         copy /Y "%VEGAS_SRC%\CleanMediaPool.cs" "!TARGET_DIR!\Clean Media Pool.cs" >nul 2>&1
         copy /Y "%VEGAS_SRC%\RenderRegionsAsClips.cs" "!TARGET_DIR!\Render Regions as Clips.cs" >nul 2>&1
         if !ERRORLEVEL! equ 0 (
-            echo   [OK] Installed 14 scripts to VEGAS Pro %%V ^(AppData^)
+            echo   [OK] Installed 15 scripts to VEGAS Pro %%V ^(AppData^)
             set /a VEGAS_COUNT+=1
         )
     )
@@ -58,6 +59,7 @@ set BORIS_DIR=%PROGRAMFILES%\BorisFX\Vegas Pro 2026\Script Menu
 if exist "%PROGRAMFILES%\BorisFX\Vegas Pro 2026" (
     if not exist "!BORIS_DIR!" mkdir "!BORIS_DIR!" >nul 2>&1
     copy /Y "%VEGAS_SRC%\SendToResolve.cs" "!BORIS_DIR!\Send to DaVinci Resolve.cs" >nul 2>&1
+    copy /Y "%VEGAS_SRC%\DeepScanProject.cs" "!BORIS_DIR!\Deep Scan Project.cs" >nul 2>&1
     copy /Y "%VEGAS_SRC%\ReceiveFromResolve.cs" "!BORIS_DIR!\Receive from DaVinci Resolve.cs" >nul 2>&1
     copy /Y "%VEGAS_SRC%\ImportAISelects.cs" "!BORIS_DIR!\Import AI Selects.cs" >nul 2>&1
     copy /Y "%VEGAS_SRC%\ClearMarkers.cs" "!BORIS_DIR!\Clear All Markers.cs" >nul 2>&1
@@ -71,7 +73,7 @@ if exist "%PROGRAMFILES%\BorisFX\Vegas Pro 2026" (
     copy /Y "%VEGAS_SRC%\ColorCodeFootage.cs" "!BORIS_DIR!\Color Code Footage.cs" >nul 2>&1
     copy /Y "%VEGAS_SRC%\CleanMediaPool.cs" "!BORIS_DIR!\Clean Media Pool.cs" >nul 2>&1
     copy /Y "%VEGAS_SRC%\RenderRegionsAsClips.cs" "!BORIS_DIR!\Render Regions as Clips.cs" >nul 2>&1
-    echo   [OK] Installed 14 scripts to BorisFX Vegas Pro 2026 ^(Program Files^)
+    echo   [OK] Installed 15 scripts to BorisFX Vegas Pro 2026 ^(Program Files^)
     set /a VEGAS_COUNT+=1
 )
 

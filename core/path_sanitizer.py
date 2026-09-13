@@ -165,3 +165,93 @@ def needs_conversion_to_uri(path: str) -> bool:
 def needs_conversion_to_windows(path: str) -> bool:
     """Return True if the path is a file URI that should become a Windows path."""
     return is_file_uri(path)
+
+
+# ---------------------------------------------------------------------------
+# Universal Environment & Installation Discovery (Zero Hardcoded User Paths)
+# ---------------------------------------------------------------------------
+
+def get_bridge_dir():
+    """Return Path to ~/.timeline_bridge in the current user profile."""
+    from pathlib import Path
+    p = Path.home() / ".timeline_bridge"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def find_all_vegas_installations():
+    """Discover all installed VEGAS Pro versions across BorisFX, MAGIX, and Sony directories.
+
+    Returns:
+        List of dicts with 'name', 'version', 'executable', 'script_menu_dir'.
+    """
+    import os
+    from pathlib import Path
+
+    installations = []
+    seen_dirs = set()
+
+    prog_files = os.environ.get("PROGRAMFILES", r"C:\Program Files")
+    app_data = os.environ.get("APPDATA", "")
+
+    # Common installation roots
+    candidates = [
+        (Path(prog_files) / "BorisFX" / "Vegas Pro 2026", "BorisFX Vegas Pro 2026", "2026.0"),
+        (Path(prog_files) / "VEGAS" / "VEGAS Pro 23.0", "VEGAS Pro 23.0", "23.0"),
+        (Path(prog_files) / "VEGAS" / "Vegas Pro 22", "VEGAS Pro 22.0", "22.0"),
+        (Path(prog_files) / "VEGAS" / "VEGAS Pro 21.0", "VEGAS Pro 21.0", "21.0"),
+        (Path(prog_files) / "VEGAS" / "VEGAS Pro 20.0", "VEGAS Pro 20.0", "20.0"),
+        (Path(prog_files) / "Sony" / "Vegas Pro 13.0", "Sony Vegas Pro 13.0", "13.0"),
+    ]
+
+    for cdir, cname, cver in candidates:
+        if cdir.exists() and str(cdir).lower() not in seen_dirs:
+            seen_dirs.add(str(cdir).lower())
+            exe_path = None
+            for exe in cdir.glob("*.exe"):
+                if "vegas" in exe.name.lower():
+                    exe_path = str(exe)
+                    break
+
+            app_script_dir = None
+            if app_data:
+                app_cand = Path(app_data) / "VEGAS Pro" / cver / "Script Menu"
+                if app_cand.parent.exists():
+                    app_script_dir = str(app_cand)
+
+            installations.append({
+                "name": cname,
+                "version": cver,
+                "install_dir": str(cdir),
+                "executable": exe_path,
+                "script_menu_dir": app_script_dir or str(cdir / "Script Menu"),
+            })
+
+    return installations
+
+
+def find_resolve_installation():
+    """Discover DaVinci Resolve installation and scripting modules.
+
+    Returns:
+        Dict with 'app_dir', 'fusionscript_dll', 'script_modules_dir', 'available'.
+    """
+    import os
+    from pathlib import Path
+
+    prog_files = os.environ.get("PROGRAMFILES", r"C:\Program Files")
+    prog_data = os.environ.get("PROGRAMDATA", r"C:\ProgramData")
+
+    resolve_dir = Path(prog_files) / "Blackmagic Design" / "DaVinci Resolve"
+    fusion_dll = resolve_dir / "fusionscript.dll"
+    modules_dir = Path(prog_data) / "Blackmagic Design" / "DaVinci Resolve" / "Support" / "Developer" / "Scripting" / "Modules"
+
+    available = fusion_dll.exists()
+
+    return {
+        "app_dir": str(resolve_dir) if resolve_dir.exists() else None,
+        "fusionscript_dll": str(fusion_dll) if fusion_dll.exists() else None,
+        "script_modules_dir": str(modules_dir) if modules_dir.exists() else None,
+        "available": available,
+    }
+

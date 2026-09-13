@@ -101,33 +101,34 @@ public class EntryPoint
                             trackMotionPosY = tmkf.PositionY;
                             trackMotionRot = tmkf.RotationZ;
 
-                            if (vegas.Project.Video.Width > 0 && tmkf.Width > 0)
+                            // Only calculate custom scaling if track motion was actually modified by user
+                            bool isDefaultMotion = (Math.Abs(tmkf.PositionX) < 0.001 && Math.Abs(tmkf.PositionY) < 0.001 && Math.Abs(tmkf.RotationZ) < 0.001 && vt.TrackMotion.MotionKeyframes.Count == 1);
+                            if (!isDefaultMotion && vegas.Project.Video.Width > 0 && tmkf.Width > 0)
                             {
                                 trackMotionScaleX = (double)vegas.Project.Video.Width / tmkf.Width;
                             }
-                            if (vegas.Project.Video.Height > 0 && tmkf.Height > 0)
+                            else
+                            {
+                                trackMotionScaleX = 1.0;
+                            }
+
+                            if (!isDefaultMotion && vegas.Project.Video.Height > 0 && tmkf.Height > 0)
                             {
                                 trackMotionScaleY = (double)vegas.Project.Video.Height / tmkf.Height;
+                            }
+                            else
+                            {
+                                trackMotionScaleY = 1.0;
                             }
                         }
                     }
                 }
 
-                // Collect Track Effects & LUTs
+                // Collect Track Effects, OFX & LUTs
                 List<string> trackFxList = new List<string>();
                 foreach (Effect fx in track.Effects)
                 {
-                    string fxName = fx.PlugIn != null ? fx.PlugIn.Name : (fx.Description ?? "Unknown");
-                    string fxPreset = "";
-                    try
-                    {
-                        if (fx.CurrentPreset != null)
-                        {
-                            fxPreset = fx.CurrentPreset.Name ?? "";
-                        }
-                    }
-                    catch {}
-                    trackFxList.Add(string.Format("{{\"name\": \"{0}\", \"preset\": \"{1}\"}}", EscapeJson(fxName), EscapeJson(fxPreset)));
+                    trackFxList.Add(SerializeEffect(fx, "        "));
                 }
 
                 float volumeDb = 0f;
@@ -255,9 +256,27 @@ public class EntryPoint
                         VideoMotionKeyframe kf = ve.VideoMotion.Keyframes[0];
                         rotationAngle = kf.Rotation;
 
-                        VideoStream vs = (take != null && take.MediaStream != null) ? take.MediaStream as VideoStream : null;
-                        int mediaW = vs != null ? vs.Width : vegas.Project.Video.Width;
-                        int mediaH = vs != null ? vs.Height : vegas.Project.Video.Height;
+                        int mediaW = 0;
+                        int mediaH = 0;
+                        if (take != null && take.Media != null && take.Media.Streams != null)
+                        {
+                            try
+                            {
+                                foreach (MediaStream s in take.Media.Streams)
+                                {
+                                    VideoStream vstr = s as VideoStream;
+                                    if (vstr != null && vstr.Width > 0 && vstr.Height > 0)
+                                    {
+                                        mediaW = vstr.Width;
+                                        mediaH = vstr.Height;
+                                        break;
+                                    }
+                                }
+                            }
+                            catch {}
+                        }
+                        if (mediaW <= 0) mediaW = vegas.Project.Video.Width;
+                        if (mediaH <= 0) mediaH = vegas.Project.Video.Height;
                         if (mediaW <= 0) mediaW = 1920;
                         if (mediaH <= 0) mediaH = 1080;
 
@@ -284,10 +303,16 @@ public class EntryPoint
                         {
                             double bw = Math.Sqrt(Math.Pow(kf.Bounds.TopRight.X - kf.Bounds.TopLeft.X, 2) + Math.Pow(kf.Bounds.TopRight.Y - kf.Bounds.TopLeft.Y, 2));
 
-                            if (bw > 1.0 && defCropW > 1.0)
+                            // If bounds width matches full media or standard project aspect crop, it is default 1.0 fill framing
+                            if (Math.Abs(bw - mediaW) < 10.0 || Math.Abs(bw - defCropW) < 10.0 || bw <= 1.0)
+                            {
+                                zoomX = 1.0;
+                                zoomY = 1.0;
+                            }
+                            else if (defCropW > 1.0)
                             {
                                 double computedZoom = defCropW / bw;
-                                if (Math.Abs(computedZoom - 1.0) > 0.02)
+                                if (Math.Abs(computedZoom - 1.0) > 0.03)
                                 {
                                     zoomX = computedZoom;
                                     zoomY = computedZoom;
@@ -300,11 +325,12 @@ public class EntryPoint
                             double shiftX = kf.Center.X - defCenterX;
                             double shiftY = kf.Center.Y - defCenterY;
 
-                            if (Math.Abs(shiftX) > 2.0)
+                            // Only assign pan if user explicitly offset center from default
+                            if (Math.Abs(shiftX) > 10.0 && defCropW > 1.0)
                             {
                                 panX = (shiftX / defCropW) * vegas.Project.Video.Width;
                             }
-                            if (Math.Abs(shiftY) > 2.0)
+                            if (Math.Abs(shiftY) > 10.0 && defCropH > 1.0)
                             {
                                 panY = -(shiftY / defCropH) * vegas.Project.Video.Height;
                             }
@@ -322,7 +348,11 @@ public class EntryPoint
                                 if (mkf.Bounds != null && mkf.Bounds.TopRight != null && mkf.Bounds.TopLeft != null)
                                 {
                                     double kbw = Math.Sqrt(Math.Pow(mkf.Bounds.TopRight.X - mkf.Bounds.TopLeft.X, 2) + Math.Pow(mkf.Bounds.TopRight.Y - mkf.Bounds.TopLeft.Y, 2));
-                                    if (kbw > 1.0 && defCropW > 1.0)
+                                    if (Math.Abs(kbw - mediaW) < 10.0 || Math.Abs(kbw - defCropW) < 10.0 || kbw <= 1.0)
+                                    {
+                                        kfZoom = 1.0;
+                                    }
+                                    else if (defCropW > 1.0)
                                     {
                                         kfZoom = defCropW / kbw;
                                     }
@@ -332,11 +362,11 @@ public class EntryPoint
                                 {
                                     double ksx = mkf.Center.X - defCenterX;
                                     double ksy = mkf.Center.Y - defCenterY;
-                                    if (Math.Abs(ksx) > 2.0)
+                                    if (Math.Abs(ksx) > 10.0 && defCropW > 1.0)
                                     {
                                         kfPanX = (ksx / defCropW) * vegas.Project.Video.Width;
                                     }
-                                    if (Math.Abs(ksy) > 2.0)
+                                    if (Math.Abs(ksy) > 10.0 && defCropH > 1.0)
                                     {
                                         kfPanY = -(ksy / defCropH) * vegas.Project.Video.Height;
                                     }
@@ -348,23 +378,13 @@ public class EntryPoint
                         }
                     }
 
-                    // Collect Event FX & LUTs
+                    // Collect Event FX, OFX & LUTs
                     List<string> eventFxList = new List<string>();
                     if (ve != null)
                     {
                         foreach (Effect fx in ve.Effects)
                         {
-                            string fxName = fx.PlugIn != null ? fx.PlugIn.Name : (fx.Description ?? "Unknown");
-                            string fxPreset = "";
-                            try
-                            {
-                                if (fx.CurrentPreset != null)
-                                {
-                                    fxPreset = fx.CurrentPreset.Name ?? "";
-                                }
-                            }
-                            catch {}
-                            eventFxList.Add(string.Format("{{\"name\": \"{0}\", \"preset\": \"{1}\"}}", EscapeJson(fxName), EscapeJson(fxPreset)));
+                            eventFxList.Add(SerializeEffect(fx, "            "));
                         }
                     }
 
@@ -422,10 +442,16 @@ public class EntryPoint
                 try
                 {
                     string pythonExe = "python";
-                    string localPy = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\Python\Python312\python.exe");
-                    if (File.Exists(localPy))
+                    string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                    string[] pyVersions = new string[] { "Python313", "Python312", "Python311", "Python310" };
+                    foreach (string ver in pyVersions)
                     {
-                        pythonExe = localPy;
+                        string cand = Path.Combine(localApp, @"Programs\Python\" + ver + @"\python.exe");
+                        if (File.Exists(cand))
+                        {
+                            pythonExe = cand;
+                            break;
+                        }
                     }
 
                     ProcessStartInfo psi = new ProcessStartInfo
@@ -458,9 +484,109 @@ public class EntryPoint
         }
     }
 
+    private string SerializeEffect(Effect fx, string indent)
+    {
+        string pName = fx.PlugIn != null ? fx.PlugIn.Name : (fx.Description ?? "Unknown");
+        string uniqueId = fx.PlugIn != null ? fx.PlugIn.UniqueID : "";
+        string classId = fx.PlugIn != null ? fx.PlugIn.ClassID.ToString() : "";
+        bool isOfx = fx.IsOFX;
+        string presetName = "";
+        try { if (fx.CurrentPreset != null) presetName = fx.CurrentPreset.Name ?? ""; } catch {}
+
+        StringBuilder sb = new StringBuilder();
+        sb.AppendLine(indent + "{");
+        sb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}  \"name\": \"{1}\",\n", indent, EscapeJson(pName));
+        sb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}  \"unique_id\": \"{1}\",\n", indent, EscapeJson(uniqueId));
+        sb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}  \"class_id\": \"{1}\",\n", indent, EscapeJson(classId));
+        sb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}  \"is_ofx\": {1},\n", indent, isOfx ? "true" : "false");
+        sb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}  \"bypass\": {1},\n", indent, fx.Bypass ? "true" : "false");
+        sb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}  \"preset\": \"{1}\",\n", indent, EscapeJson(presetName));
+
+        if (isOfx && fx.OFXEffect != null)
+        {
+            OFXEffect ofx = fx.OFXEffect;
+            sb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}  \"ofx_label\": \"{1}\",\n", indent, EscapeJson(ofx.Label ?? ""));
+            sb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}  \"ofx_plugin_path\": \"{1}\",\n", indent, EscapeJson(ofx.PlugInPath ?? ""));
+            sb.AppendLine(indent + "  \"parameters\": [");
+
+            List<string> paramJsonList = new List<string>();
+            try
+            {
+                foreach (OFXParameter param in ofx.Parameters)
+                {
+                    StringBuilder pb = new StringBuilder();
+                    pb.AppendLine(indent + "    {");
+                    pb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}      \"name\": \"{1}\",\n", indent, EscapeJson(param.Name ?? ""));
+                    pb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}      \"label\": \"{1}\",\n", indent, EscapeJson(param.Label ?? ""));
+                    pb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}      \"type\": \"{1}\",\n", indent, param.ParameterType.ToString());
+                    pb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}      \"enabled\": {1},\n", indent, param.Enabled ? "true" : "false");
+
+                    string valStr = "\"\"";
+                    if (param is OFXDoubleParameter)
+                    {
+                        valStr = ((OFXDoubleParameter)param).Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
+                    }
+                    else if (param is OFXBooleanParameter)
+                    {
+                        valStr = ((OFXBooleanParameter)param).Value ? "true" : "false";
+                    }
+                    else if (param is OFXChoiceParameter)
+                    {
+                        OFXChoiceParameter cp = (OFXChoiceParameter)param;
+                        valStr = string.Format("\"{0}\"", EscapeJson(cp.Value != null ? cp.Value.Name : ""));
+                    }
+                    else if (param is OFXRGBParameter)
+                    {
+                        OFXRGBParameter rp = (OFXRGBParameter)param;
+                        valStr = "{\"r\": " + rp.Value.R.ToString("F4", System.Globalization.CultureInfo.InvariantCulture) +
+                                 ", \"g\": " + rp.Value.G.ToString("F4", System.Globalization.CultureInfo.InvariantCulture) +
+                                 ", \"b\": " + rp.Value.B.ToString("F4", System.Globalization.CultureInfo.InvariantCulture) + "}";
+                    }
+                    else if (param is OFXRGBAParameter)
+                    {
+                        OFXRGBAParameter ap = (OFXRGBAParameter)param;
+                        valStr = "{\"r\": " + ap.Value.R.ToString("F4", System.Globalization.CultureInfo.InvariantCulture) +
+                                 ", \"g\": " + ap.Value.G.ToString("F4", System.Globalization.CultureInfo.InvariantCulture) +
+                                 ", \"b\": " + ap.Value.B.ToString("F4", System.Globalization.CultureInfo.InvariantCulture) +
+                                 ", \"a\": " + ap.Value.A.ToString("F4", System.Globalization.CultureInfo.InvariantCulture) + "}";
+                    }
+                    else if (param is OFXIntegerParameter)
+                    {
+                        valStr = ((OFXIntegerParameter)param).Value.ToString();
+                    }
+                    else if (param is OFXDouble2DParameter)
+                    {
+                        OFXDouble2DParameter d2p = (OFXDouble2DParameter)param;
+                        valStr = "{\"x\": " + d2p.Value.X.ToString("F6", System.Globalization.CultureInfo.InvariantCulture) +
+                                 ", \"y\": " + d2p.Value.Y.ToString("F6", System.Globalization.CultureInfo.InvariantCulture) + "}";
+                    }
+                    else if (param is OFXStringParameter)
+                    {
+                        valStr = string.Format("\"{0}\"", EscapeJson(((OFXStringParameter)param).Value ?? ""));
+                    }
+
+                    pb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, "{0}      \"value\": {1}\n", indent, valStr);
+                    pb.Append(indent + "    }");
+                    paramJsonList.Add(pb.ToString());
+                }
+            }
+            catch {}
+
+            sb.AppendLine(string.Join(",\n", paramJsonList.ToArray()));
+            sb.AppendLine(indent + "  ]");
+        }
+        else
+        {
+            sb.AppendLine(indent + "  \"parameters\": []");
+        }
+
+        sb.Append(indent + "}");
+        return sb.ToString();
+    }
+
     private string EscapeJson(string s)
     {
         if (string.IsNullOrEmpty(s)) return "";
-        return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", " ");
+        return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", " ").Replace("\t", " ");
     }
 }

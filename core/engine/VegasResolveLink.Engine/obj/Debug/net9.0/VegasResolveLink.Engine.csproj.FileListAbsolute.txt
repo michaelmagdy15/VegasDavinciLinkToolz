@@ -1,0 +1,12 @@
+c:\Users\Mi5a\VegasDavinciLinkTool\core\engine\VegasResolveLink.Engine\bin\Debug\net9.0\VegasResolveLink.Engine.deps.json
+c:\Users\Mi5a\VegasDavinciLinkTool\core\engine\VegasResolveLink.Engine\bin\Debug\net9.0\VegasResolveLink.Engine.dll
+c:\Users\Mi5a\VegasDavinciLinkTool\core\engine\VegasResolveLink.Engine\bin\Debug\net9.0\VegasResolveLink.Engine.pdb
+c:\Users\Mi5a\VegasDavinciLinkTool\core\engine\VegasResolveLink.Engine\obj\Debug\net9.0\VegasResolveLink.Engine.GeneratedMSBuildEditorConfig.editorconfig
+c:\Users\Mi5a\VegasDavinciLinkTool\core\engine\VegasResolveLink.Engine\obj\Debug\net9.0\VegasResolveLink.Engine.AssemblyInfoInputs.cache
+c:\Users\Mi5a\VegasDavinciLinkTool\core\engine\VegasResolveLink.Engine\obj\Debug\net9.0\VegasResolveLink.Engine.AssemblyInfo.cs
+c:\Users\Mi5a\VegasDavinciLinkTool\core\engine\VegasResolveLink.Engine\obj\Debug\net9.0\VegasResolveLink.Engine.csproj.CoreCompileInputs.cache
+c:\Users\Mi5a\VegasDavinciLinkTool\core\engine\VegasResolveLink.Engine\obj\Debug\net9.0\VegasResolveLink.Engine.sourcelink.json
+c:\Users\Mi5a\VegasDavinciLinkTool\core\engine\VegasResolveLink.Engine\obj\Debug\net9.0\VegasResolveLink.Engine.dll
+c:\Users\Mi5a\VegasDavinciLinkTool\core\engine\VegasResolveLink.Engine\obj\Debug\net9.0\refint\VegasResolveLink.Engine.dll
+c:\Users\Mi5a\VegasDavinciLinkTool\core\engine\VegasResolveLink.Engine\obj\Debug\net9.0\VegasResolveLink.Engine.pdb
+c:\Users\Mi5a\VegasDavinciLinkTool\core\engine\VegasResolveLink.Engine\obj\Debug\net9.0\ref\VegasResolveLink.Engine.dll

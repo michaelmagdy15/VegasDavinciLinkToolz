@@ -3,15 +3,23 @@ title Vegas - Resolve Timeline Bridge
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
-:: 1. Find valid Python executable
-set "PYTHON_BIN=C:\Users\Mi5a\AppData\Local\Programs\Python\Python312\python.exe"
-if exist "%PYTHON_BIN%" goto :found_python
+:: 1. Find valid Python executable dynamically
+set "PYTHON_BIN="
+for %%V in (Python313 Python312 Python311 Python310) do (
+    if not defined PYTHON_BIN (
+        if exist "%LOCALAPPDATA%\Programs\Python\%%V\python.exe" (
+            set "PYTHON_BIN=%LOCALAPPDATA%\Programs\Python\%%V\python.exe"
+        )
+    )
+)
 
-for %%P in (python py) do (
-    where %%P >nul 2>&1
-    if !ERRORLEVEL! equ 0 (
-        set "PYTHON_BIN=%%P"
-        goto :found_python
+if not defined PYTHON_BIN (
+    for %%P in (python py) do (
+        where %%P >nul 2>&1
+        if !ERRORLEVEL! equ 0 (
+            set "PYTHON_BIN=%%P"
+            goto :found_python
+        )
     )
 )
 

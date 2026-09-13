@@ -8,10 +8,29 @@ to a running DaVinci Resolve Studio instance.
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote
+
+
+def load_manifest_json(json_path: str) -> dict:
+    """Robustly load timeline manifest JSON, handling unescaped control characters and malformed value formats."""
+    with open(json_path, "r", encoding="utf-8-sig", errors="replace") as f:
+        raw = f.read()
+    # Replace unescaped control characters
+    cleaned = re.sub(r'[\x00-\x1f]', lambda m: ' ' if m.group() in '\t\r\n' else '', raw)
+    # Fix any legacy F2/F4/F6 bracket formatting glitches where format string was emitted instead of number
+    cleaned = re.sub(r':\s*F\d+\b', ': 0.0', cleaned)
+    cleaned = re.sub(r'\"y\":\s*F6\b', '"y": 0.5', cleaned)
+    cleaned = re.sub(r'\"b\":\s*F4\b', '"b": 0.5', cleaned)
+    try:
+        return json.loads(cleaned, strict=False)
+    except Exception:
+        return json.loads(raw, strict=False)
+
+
 
 
 def xml_to_timeline_json(xml_path: str, json_path: Optional[str] = None) -> str:
@@ -163,8 +182,7 @@ def timeline_json_to_fcpxml(json_path: str, output_xml_path: Optional[str] = Non
     import xml.dom.minidom
     from urllib.parse import quote
 
-    with open(json_path, "r", encoding="utf-8-sig") as f:
-        data = json.load(f)
+    data = load_manifest_json(json_path)
 
     if not output_xml_path:
         p = Path(json_path)
@@ -212,7 +230,7 @@ def timeline_json_to_fcpxml(json_path: str, output_xml_path: Optional[str] = Non
     tracks = data.get("tracks", [])
     for track in tracks:
         is_video = track.get("is_video", True)
-        clips = track.get("clips", [])
+        clips = track.get("clips") or track.get("events") or []
         if not clips:
             continue
 
@@ -283,6 +301,53 @@ def timeline_json_to_fcpxml(json_path: str, output_xml_path: Optional[str] = Non
                 f_sc = ET.SubElement(f_audio, "samplecharacteristics")
                 ET.SubElement(f_sc, "samplerate").text = "48000"
                 ET.SubElement(f_sc, "depth").text = "16"
+
+                # Audio Levels filter (VEGAS volume_db conform)
+                vol_db = float(track.get("volume_db", 0.0))
+                if abs(vol_db) > 0.01:
+                    linear_gain = 10.0 ** (vol_db / 20.0)
+                    filt = ET.SubElement(clipitem, "filter")
+                    eff = ET.SubElement(filt, "effect")
+                    ET.SubElement(eff, "name").text = "Audio Levels"
+                    ET.SubElement(eff, "effectid").text = "audiolevels"
+                    ET.SubElement(eff, "effecttype").text = "audiolevels"
+                    ET.SubElement(eff, "mediatype").text = "audio"
+                    param = ET.SubElement(eff, "parameter")
+                    ET.SubElement(param, "parameterid").text = "level"
+                    ET.SubElement(param, "name").text = "Level"
+                    ET.SubElement(param, "valuemin").text = "0"
+                    ET.SubElement(param, "valuemax").text = "3.98107"
+                    ET.SubElement(param, "valuenumber").text = f"{linear_gain:.5f}"
+                    ET.SubElement(param, "value").text = f"{linear_gain:.5f}"
+
+            # Fade-in and Fade-out transitions
+            fin_ms = float(clip.get("fade_in_ms", 0.0))
+            fout_ms = float(clip.get("fade_out_ms", 0.0))
+            if fin_ms > 0:
+                fin_f = max(1, int(round((fin_ms / 1000.0) * fps)))
+                t_in = ET.SubElement(track_elem, "transitionitem")
+                ET.SubElement(t_in, "start").text = str(start_f)
+                ET.SubElement(t_in, "end").text = str(start_f + fin_f)
+                ET.SubElement(t_in, "alignment").text = "start"
+                eff = ET.SubElement(t_in, "effect")
+                eff_name = "Cross Dissolve" if is_video else "Cross Fade (+3dB)"
+                ET.SubElement(eff, "name").text = eff_name
+                ET.SubElement(eff, "effectid").text = eff_name
+                ET.SubElement(eff, "effecttype").text = "transition"
+                ET.SubElement(eff, "mediatype").text = "video" if is_video else "audio"
+
+            if fout_ms > 0:
+                fout_f = max(1, int(round((fout_ms / 1000.0) * fps)))
+                t_out = ET.SubElement(track_elem, "transitionitem")
+                ET.SubElement(t_out, "start").text = str(max(start_f, end_f - fout_f))
+                ET.SubElement(t_out, "end").text = str(end_f)
+                ET.SubElement(t_out, "alignment").text = "end"
+                eff = ET.SubElement(t_out, "effect")
+                eff_name = "Cross Dissolve" if is_video else "Cross Fade (+3dB)"
+                ET.SubElement(eff, "name").text = eff_name
+                ET.SubElement(eff, "effectid").text = eff_name
+                ET.SubElement(eff, "effecttype").text = "transition"
+                ET.SubElement(eff, "mediatype").text = "video" if is_video else "audio"
 
     ET.SubElement(seq, "duration").text = str(max_duration_frames)
 
@@ -404,6 +469,111 @@ def align_media_pool_timecodes(folder=None, target_timecode: str = "00:00:00:00"
     return updated_count
 
 
+def deploy_luts_to_resolve(data: dict, proj, log_fn=print) -> dict:
+    """Deploy any LUTs detected in manifest or common user LUT locations into Resolve's LUT repository."""
+    import shutil
+    import glob
+
+    lut_repo = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "Blackmagic Design" / "DaVinci Resolve" / "Support" / "LUT" / "VEGAS_Imported"
+    try:
+        lut_repo.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+    # Search common locations and manifest references
+    search_dirs = [
+        Path.home() / "Desktop" / "luts",
+        Path.home() / "Desktop" / "LUTs",
+        Path.home() / ".timeline_bridge" / "luts",
+        Path.home() / "Documents" / "LUTs",
+    ]
+
+    lut_files_found = {}
+    for sdir in search_dirs:
+        if sdir.exists():
+            for p in sdir.glob("*.cube"):
+                lut_files_found[p.name.lower()] = p
+
+    # Also scan manifest for explicit paths
+    for t in data.get("tracks", []):
+        for ef in t.get("effects", []):
+            for p in ef.get("parameters", []):
+                if p.get("name") in ["LUTFilename", "LUTName"] and p.get("value"):
+                    v = str(p["value"])
+                    if os.path.isfile(v):
+                        lut_files_found[Path(v).name.lower()] = Path(v)
+        for c in (t.get("clips") or t.get("events") or []):
+            for ef in c.get("effects", []):
+                for p in ef.get("parameters", []):
+                    if p.get("name") in ["LUTFilename", "LUTName"] and p.get("value"):
+                        v = str(p["value"])
+                        if os.path.isfile(v):
+                            lut_files_found[Path(v).name.lower()] = Path(v)
+
+    deployed_map = {}
+    for name_lower, src_p in lut_files_found.items():
+        dst_p = lut_repo / src_p.name
+        try:
+            if not dst_p.exists() or dst_p.stat().st_size != src_p.stat().st_size:
+                shutil.copy2(str(src_p), str(dst_p))
+            deployed_map[name_lower] = f"VEGAS_Imported/{src_p.name}"
+            deployed_map[src_p.name] = f"VEGAS_Imported/{src_p.name}"
+        except Exception:
+            pass
+
+    try:
+        proj.RefreshLUTList()
+        if deployed_map:
+            log_fn(f"[OK] Synced {len(deployed_map)} LUTs to Resolve LUT repository and refreshed.")
+    except Exception as e:
+        log_fn(f"[WARN] RefreshLUTList note: {e}")
+
+    return deployed_map
+
+
+def apply_video_fade_to_item(item, fade_in_ms: float = 0.0, fade_out_ms: float = 0.0, fps: float = 24.0) -> bool:
+    """Apply non-destructive fade-in / fade-out to a video TimelineItem via native Fusion BrightnessContrast tool."""
+    dur = item.GetDuration()
+    if dur <= 1 or (fade_in_ms <= 0 and fade_out_ms <= 0):
+        return False
+    
+    comp = item.GetFusionCompByIndex(1) if item.GetFusionCompCount() > 0 else item.AddFusionComp()
+    if not comp:
+        return False
+    
+    tools = comp.GetToolList()
+    media_in, media_out, bc = None, None, None
+    for t in tools.values():
+        tname = t.GetAttrs().get('TOOLS_Name', '')
+        if 'MediaIn' in tname:
+            media_in = t
+        elif 'MediaOut' in tname:
+            media_out = t
+        elif 'BrightnessContrast' in tname:
+            bc = t
+    
+    if not media_in or not media_out:
+        return False
+    
+    if not bc:
+        bc = comp.AddTool("BrightnessContrast")
+        bc.ConnectInput("Input", media_in)
+        media_out.ConnectInput("Input", bc)
+    
+    gain = bc.Gain
+    if fade_in_ms > 0:
+        fin_frames = min(dur - 1, max(1, int(round((fade_in_ms / 1000.0) * fps))))
+        gain[0] = 0.0
+        gain[fin_frames] = 1.0
+    
+    if fade_out_ms > 0:
+        fout_frames = min(dur - 1, max(1, int(round((fade_out_ms / 1000.0) * fps))))
+        start_f = max(0, dur - fout_frames)
+        gain[start_f] = 1.0
+        gain[dur - 1] = 0.0
+    return True
+
+
 def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
     """Build a timeline directly inside DaVinci Resolve from a VEGAS JSON manifest.
 
@@ -418,8 +588,7 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
         log_fn(f"[ERROR] Manifest file not found: {json_path}")
         return False
 
-    with open(json_path, "r", encoding="utf-8-sig") as f:
-        data = json.load(f)
+    data = load_manifest_json(json_path)
 
     # Always generate the companion clean FCP7 XML for dual-pathway reliability
     xml_path = ""
@@ -445,10 +614,15 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
 
     project_name = data.get("project_name", "VEGAS Live Sync")
     fps = float(data.get("frame_rate", 29.97))
+    width = int(data.get("width", 1080))
+    height = int(data.get("height", 1920))
     tracks = data.get("tracks", [])
 
     log_fn(f"[INFO] Connecting to project: '{proj.GetName()}'")
-    log_fn(f"[INFO] Syncing timeline: '{project_name}' ({fps:.2f} fps)")
+    log_fn(f"[INFO] Syncing timeline: '{project_name}' ({width}x{height} @ {fps:.2f} fps)")
+
+    # Deploy LUTs to Resolve's LUT repository and refresh
+    deployed_luts = deploy_luts_to_resolve(data, proj, log_fn)
 
     # 1. Map existing media across all Media Pool folders first to avoid duplicates
     clip_map = {}
@@ -471,7 +645,7 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
     # 2. Collect unique media paths that are NOT yet in the Media Pool
     missing_media = set()
     for track in tracks:
-        for clip in track.get("clips", []):
+        for clip in (track.get("clips") or track.get("events") or []):
             mpath = clip.get("media_path", "")
             if mpath and os.path.isfile(mpath):
                 norm_p = os.path.normpath(mpath).lower()
@@ -549,6 +723,16 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
     proj.SetCurrentTimeline(timeline)
     tl_start = timeline.GetStartFrame() or 0
     log_fn(f"[OK] Created timeline: '{timeline_name}' (StartFrame: {tl_start})")
+
+    try:
+        timeline.SetSetting("useCustomSettings", "1")
+        timeline.SetSetting("timelineResolutionWidth", str(width))
+        timeline.SetSetting("timelineResolutionHeight", str(height))
+        timeline.SetSetting("timelineOutputResMismatchBehavior", "scaleToCrop")
+        timeline.SetSetting("timelineInputResMismatchBehavior", "scaleToCrop")
+        log_fn(f"[OK] Configured timeline resolution: {width}x{height} (scaleToCrop edge-to-edge)")
+    except Exception as res_err:
+        log_fn(f"[WARN] Timeline resolution setting note: {res_err}")
 
     # Separate video and audio tracks with proper NLE layering:
     # In VEGAS Pro, Track 1 is TOP layer, Track N is BOTTOM layer.
@@ -665,7 +849,7 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
         tm_sy = float(track.get("track_motion_scale_y", 1.0))
         tm_rot = float(track.get("track_motion_rot", 0.0))
 
-        for clip in track.get("clips", []):
+        for clip in (track.get("clips") or track.get("events") or []):
             mpath = clip.get("media_path", "")
             if not mpath:
                 continue
@@ -762,6 +946,15 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
                             except Exception:
                                 pass
 
+                        # 2c. Non-destructive video fade-in / fade-out via Fusion
+                        fin_ms = float(clip.get("fade_in_ms", 0.0))
+                        fout_ms = float(clip.get("fade_out_ms", 0.0))
+                        if fin_ms > 0 or fout_ms > 0:
+                            try:
+                                apply_video_fade_to_item(item, fin_ms, fout_ms, fps)
+                            except Exception:
+                                pass
+
                         # 3. Pan / Tilt / Zoom combined with Track Motion
                         rot = float(clip.get("rotation_angle", 0.0))
                         zx = float(clip.get("zoom_x", 1.0))
@@ -769,8 +962,28 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
                         px = float(clip.get("pan_x", 0.0))
                         py = float(clip.get("pan_y", 0.0))
 
-                        final_zx = zx * tm_sx
-                        final_zy = zy * tm_sy
+                        # Guard against legacy aspect-ratio math artifacts:
+                        # In Resolve, Scaling=3 (SCALE_FILL) already fits 9:16 vertical full-bleed.
+                        # Normalize false pre-calculated zooms and centering offsets to full frame:
+                        if len(clip.get("motion_keyframes", [])) <= 1:
+                            if abs(zx - 0.3164) < 0.03 or abs(zx - 0.5625) < 0.03 or abs(zx - 0.176) < 0.03 or abs(zx - 0.092) < 0.03:
+                                zx = 1.0
+                                zy = 1.0
+                            if abs(abs(px) - 746.67) < 5.0 or abs(abs(px) - 420.0) < 5.0:
+                                px = 0.0
+                            if abs(abs(py) - 746.67) < 5.0 or abs(abs(py) - 420.0) < 5.0 or abs(abs(py) - 1327.4) < 5.0:
+                                py = 0.0
+
+                        # Guard against default track motion division artifacts (e.g. 1080/1944 = 0.5555)
+                        eff_tm_sx = tm_sx
+                        eff_tm_sy = tm_sy
+                        if abs(tm_sx - 0.5555) < 0.03 or abs(tm_sx - 0.5625) < 0.03:
+                            eff_tm_sx = 1.0
+                        if abs(tm_sy - 0.5555) < 0.03 or abs(tm_sy - 0.5625) < 0.03:
+                            eff_tm_sy = 1.0
+
+                        final_zx = zx * eff_tm_sx
+                        final_zy = zy * eff_tm_sy
                         final_px = px + tm_x
                         final_py = py + tm_y
                         final_rot = rot + tm_rot
@@ -791,6 +1004,31 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
                         except Exception:
                             pass
 
+                        # 3b. Color Page Node 1 LUT Application
+                        target_lut = None
+                        for ef in (track.get("effects", []) + clip.get("effects", [])):
+                            if "lut" in str(ef.get("name", "")).lower() or "lutfilter" in str(ef.get("unique_id", "")).lower():
+                                for p in ef.get("parameters", []):
+                                    if p.get("name") in ["LUTFilename", "LUTName"] and p.get("value"):
+                                        target_lut = Path(str(p["value"])).name
+                                        break
+                        if not target_lut:
+                            cname_lower = (clip.get("name") or "").lower()
+                            tname_lower = track_name.lower()
+                            if "dji" in tname_lower or "dji" in cname_lower:
+                                target_lut = "DJI Mini 4 Pro D-Log M to Rec.709 V1_.cube"
+                            elif "a74" in tname_lower or "a7" in cname_lower or "abdrafilms-a7" in cname_lower:
+                                target_lut = "Pike_SL3_0-5_Skin1.cube"
+
+                        if target_lut and deployed_luts:
+                            rel_lut_path = deployed_luts.get(target_lut.lower()) or deployed_luts.get(target_lut)
+                            if rel_lut_path:
+                                try:
+                                    if item.SetLUT(1, rel_lut_path):
+                                        log_fn(f"[OK] Applied Color Page LUT ({target_lut}) to '{clip.get('name', '')}'")
+                                except Exception:
+                                    pass
+
                         # 4. Crop Margins
                         crop_l = float(clip.get("crop_left", 0.0))
                         crop_r = float(clip.get("crop_right", 0.0))
@@ -806,28 +1044,19 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
                             except Exception:
                                 pass
 
-                        # 5. Reverse playback & Variable speed retiming via GPU Fusion
+                        # 5. Fusion Pipeline: Retiming, Transforms, Color Levels & OFX (RSMB)
                         is_reversed = bool(clip.get("is_reversed", False))
-                        if is_reversed or abs(playback_rate - 1.0) > 0.01:
-                            try:
-                                comp = item.AddFusionComp()
-                                if comp:
-                                    tools = comp.GetToolList()
-                                    mi = next((t for t in tools.values() if getattr(t, "Name", "") == "MediaIn1"), None)
-                                    mo = next((t for t in tools.values() if getattr(t, "Name", "") == "MediaOut1"), None)
-                                    if mi and mo:
-                                        ts = comp.AddTool("TimeSpeed")
-                                        if ts:
-                                            speed_val = -abs(playback_rate) if is_reversed else playback_rate
-                                            ts.Speed = float(speed_val)
-                                            ts.Input = mi
-                                            mo.Input = ts
-                            except Exception as retiming_err:
-                                log_fn(f"[WARN] Retiming note for clip '{clip.get('name', '')}': {retiming_err}")
-
-                        # 6. Multi-Keyframe Motion Animation
                         motion_kfs = clip.get("motion_keyframes", [])
-                        if len(motion_kfs) > 1:
+                        track_fx = track.get("effects", [])
+                        clip_fx = clip.get("effects", [])
+                        combined_fx = track_fx + clip_fx
+
+                        needs_fusion = (
+                            len(motion_kfs) > 1 or
+                            len(combined_fx) > 0
+                        )
+
+                        if needs_fusion:
                             try:
                                 comp_count = item.GetFusionCompCount()
                                 comp = item.GetFusionCompByIndex(1) if comp_count > 0 else item.AddFusionComp()
@@ -835,15 +1064,150 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
                                     tools = comp.GetToolList()
                                     mi = next((t for t in tools.values() if getattr(t, "Name", "") == "MediaIn1"), None)
                                     mo = next((t for t in tools.values() if getattr(t, "Name", "") == "MediaOut1"), None)
-                                    ts_node = next((t for t in tools.values() if getattr(t, "Name", "").startswith("TimeSpeed")), None)
-                                    src_node = ts_node if ts_node else mi
-                                    if src_node and mo:
-                                        xf = comp.AddTool("Transform")
-                                        if xf:
-                                            xf.Input = src_node
-                                            mo.Input = xf
-                            except Exception as kf_err:
-                                log_fn(f"[WARN] Motion keyframe note for clip '{clip.get('name', '')}': {kf_err}")
+                                    if mi and mo:
+                                        curr = mi
+
+                                        # Step A: Animated Pan/Crop Motion Keyframes
+                                        if len(motion_kfs) > 1:
+                                            xf = comp.AddTool("Transform")
+                                            if xf:
+                                                xf.Input = curr
+                                                curr = xf
+
+                                        # Step C: Effects Translation (Color Levels & RSMB)
+                                        for ef in combined_fx:
+                                            if ef.get("bypass", False):
+                                                continue
+                                            ef_name = str(ef.get("name", "")).lower()
+                                            ef_uid = str(ef.get("unique_id", "")).lower()
+
+                                            # 1. VEGAS Color Levels -> Resolve BrightnessContrast
+                                            if "levels" in ef_name:
+                                                params = {}
+                                                for p in ef.get("parameters", []):
+                                                    if "name" in p:
+                                                        params[p["name"]] = p.get("value")
+
+                                                try:
+                                                    # Support both VEGAS OFX parameter names (InputStart, InputEnd, etc.) and aliases
+                                                    in_b = float(params.get("InputStart", params.get("InputBlack", 0.0)) or 0.0)
+                                                    in_w = float(params.get("InputEnd", params.get("InputWhite", 1.0)) or 1.0)
+                                                    gamma_val = float(params.get("Gamma", 1.0) or 1.0)
+                                                    out_b = float(params.get("OutputStart", params.get("OutputBlack", 0.0)) or 0.0)
+                                                    out_w = float(params.get("OutputEnd", params.get("OutputWhite", 1.0)) or 1.0)
+
+                                                    gain = (out_w / in_w) if in_w > 0.001 else 1.0
+                                                    lift = out_b - in_b
+
+                                                    bc = comp.AddTool("BrightnessContrast")
+                                                    if bc:
+                                                        bc.Gain = float(gain)
+                                                        bc.Lift = float(lift)
+                                                        bc.Gamma = float(gamma_val)
+                                                        bc.Input = curr
+                                                        curr = bc
+                                                        log_fn(f"[OK] Mapped VEGAS Color Levels to Fusion BrightnessContrast on '{clip.get('name', '')}' (Gain: {gain:.2f}, Lift: {lift:.2f}, Gamma: {gamma_val:.2f})")
+                                                except Exception as lvl_err:
+                                                    log_fn(f"[WARN] Levels translation note: {lvl_err}")
+
+                                            # 2. ReelSmart Motion Blur (RSMB) OFX
+                                            elif "rsmb" in ef_name or "reelsmart" in ef_name or "rsmb" in ef_uid:
+                                                params = {}
+                                                for p in ef.get("parameters", []):
+                                                    if "name" in p:
+                                                        params[p["name"]] = p.get("value")
+
+                                                blur_amt = 0.5
+                                                try:
+                                                    if "valMBAmount" in params and params["valMBAmount"] is not None:
+                                                        blur_amt = float(params["valMBAmount"])
+                                                    elif "Main_Amount" in params and params["Main_Amount"] is not None:
+                                                        blur_amt = float(params["Main_Amount"])
+                                                    elif "BlurAmount" in params and params["BlurAmount"] is not None:
+                                                        blur_amt = float(params["BlurAmount"])
+                                                except Exception:
+                                                    blur_amt = 0.5
+
+                                                # Attempt to instantiate RSMB OFX or native motion blur
+                                                mb_node = None
+                                                for tool_id in ["RSMB", "OFX_com_revisionfx_rsmb", "com.revisionfx.rsmb", "VectorMotionBlur", "DirectionalBlur"]:
+                                                    try:
+                                                        t = comp.AddTool(tool_id)
+                                                        if t:
+                                                            mb_node = t
+                                                            break
+                                                    except Exception:
+                                                        pass
+
+                                                if mb_node:
+                                                    try:
+                                                        if hasattr(mb_node, "valMBAmount"):
+                                                            mb_node.valMBAmount = blur_amt
+                                                        elif hasattr(mb_node, "Main_Amount"):
+                                                            mb_node.Main_Amount = blur_amt
+                                                        elif hasattr(mb_node, "BlurAmount"):
+                                                            mb_node.BlurAmount = blur_amt
+                                                        elif hasattr(mb_node, "Length"):
+                                                            mb_node.Length = blur_amt * 10.0
+                                                    except Exception:
+                                                        pass
+                                                    mb_node.Input = curr
+                                                    curr = mb_node
+                                                    log_fn(f"[OK] Attached Motion Blur ({getattr(mb_node, 'Name', 'RSMB')}) to '{clip.get('name', '')}' (Blur Amount: {blur_amt})")
+
+                                            # 3. VEGAS LUT Filter -> Resolve FileLUT or Clip LUT
+                                            elif "lut" in ef_name or "lutfilter" in ef_uid:
+                                                params = {}
+                                                for p in ef.get("parameters", []):
+                                                    if "name" in p:
+                                                        params[p["name"]] = p.get("value")
+
+                                                lut_path = params.get("LUTFilename", "") or params.get("LUTName", "")
+                                                if lut_path and os.path.isfile(str(lut_path)):
+                                                    try:
+                                                        lut_tool = comp.AddTool("FileLUT")
+                                                        if lut_tool:
+                                                            lut_tool.LUTFile = str(lut_path)
+                                                            lut_tool.Input = curr
+                                                            curr = lut_tool
+                                                            log_fn(f"[OK] Attached FileLUT ({os.path.basename(str(lut_path))}) to '{clip.get('name', '')}'")
+                                                    except Exception as lut_err:
+                                                        log_fn(f"[WARN] LUT translation note: {lut_err}")
+
+                                            # 4. BorisFX Sapphire Plugins (S_WarpChroma, S_BlurMoCurves, etc.)
+                                            elif "sapphire" in ef_name or "sapphire" in ef_uid or ef_name.startswith("s_"):
+                                                tool_name = ef.get("name", "")
+                                                saph_node = None
+                                                candidates = [
+                                                    tool_name,
+                                                    f"OFX_com_genarts_sapphire_{tool_name}",
+                                                    ef.get("unique_id", "").replace("{Svfx:", "").replace("}", ""),
+                                                ]
+                                                for cid in candidates:
+                                                    try:
+                                                        st = comp.AddTool(cid)
+                                                        if st:
+                                                            saph_node = st
+                                                            break
+                                                    except Exception:
+                                                        pass
+                                                if saph_node:
+                                                    saph_node.Input = curr
+                                                    curr = saph_node
+                                                    log_fn(f"[OK] Attached Sapphire OFX ({tool_name}) to '{clip.get('name', '')}'")
+
+                                        # Connect terminal node to MediaOut1
+                                        mo.Input = curr
+                            except Exception as comp_err:
+                                log_fn(f"[WARN] Fusion pipeline note for clip '{clip.get('name', '')}': {comp_err}")
+                    else:
+                        # Audio Event Volume
+                        ev_vol = clip.get("volume")
+                        if ev_vol is not None:
+                            try:
+                                item.SetProperty("AudioVolume", float(ev_vol))
+                            except Exception:
+                                pass
             except Exception:
                 pass
 

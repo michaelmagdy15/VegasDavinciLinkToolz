@@ -1,14 +1,16 @@
 """
 ImportFromVegas.py — DaVinci Resolve Script Menu Integration.
 
+Universal, multi-user compatible script connecting to VEGAS Pro Live Link.
+
 Place in:
-  %APPDATA%\\Blackmagic Design\\DaVinci Resolve\\Support\\Developer\\Scripting\\Scripts\\Utility\\
+  %PROGRAMDATA%\\Blackmagic Design\\DaVinci Resolve\\Fusion\\Scripts\\Utility\\
+  %APPDATA%\\Blackmagic Design\\DaVinci Resolve\\Support\\Fusion\\Scripts\\Utility\\
 
 Access via DaVinci Resolve:
   Workspace > Scripts > ImportFromVegas
 """
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -33,19 +35,34 @@ def main():
     except Exception:
         pass
 
-    # Try to find core live_bridge
-    repo_dir = Path(r"C:\Users\Mi5a\VegasDavinciLinkTool")
-    if repo_dir.exists() and str(repo_dir) not in sys.path:
-        sys.path.insert(0, str(repo_dir))
+    # Ensure ~/.timeline_bridge and current script repo are on sys.path
+    if bridge_dir.exists() and str(bridge_dir) not in sys.path:
+        sys.path.insert(0, str(bridge_dir))
 
+    script_dir = Path(__file__).resolve().parent
+    for candidate in [script_dir.parent.parent, Path.cwd()]:
+        if (candidate / "core" / "live_bridge.py").exists() and str(candidate) not in sys.path:
+            sys.path.insert(0, str(candidate))
+
+    import_fn = None
     try:
         from core.live_bridge import import_timeline_from_json
+        import_fn = import_timeline_from_json
+    except ImportError:
+        try:
+            from live_bridge import import_timeline_from_json
+            import_fn = import_timeline_from_json
+        except ImportError as ie:
+            print(f"[ImportFromVegas] Could not import live_bridge module: {ie}")
+            return
+
+    try:
         print(f"[ImportFromVegas] Loading manifest: {json_path}")
-        success = import_timeline_from_json(str(json_path), log_fn=print)
+        success = import_fn(str(json_path), log_fn=print)
         if success:
-            print("[ImportFromVegas] ✓ Successfully synced timeline from VEGAS Pro!")
+            print("[ImportFromVegas] Successfully synced timeline from VEGAS Pro!")
         else:
-            print("[ImportFromVegas] ✗ Failed to sync timeline.")
+            print("[ImportFromVegas] Failed to sync timeline.")
     except Exception as e:
         print(f"[ImportFromVegas] Error: {e}")
 

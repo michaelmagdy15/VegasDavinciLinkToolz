@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="4">
+  <sequence id="test_trans_seq">
+    <name>Test Transition Sync</name>
+    <rate>
+      <timebase>24</timebase>
+      <ntsc>FALSE</ntsc>
+    </rate>
+    <media>
+      <video>
+        <format>
+          <samplecharacteristics>
+            <rate>
+              <timebase>24</timebase>
+              <ntsc>FALSE</ntsc>
+            </rate>
+            <width>1080</width>
+            <height>1920</height>
+          </samplecharacteristics>
+        </format>
+        <track>
+          <clipitem id="clip-1">
+            <name>filmburn_6.mov</name>
+            <duration>100</duration>
+            <rate><timebase>24</timebase><ntsc>FALSE</ntsc></rate>
+            <start>0</start>
+            <end>100</end>
+            <in>0</in>
+            <out>100</out>
+            <file id="f-1">
+              <name>filmburn_6.mov</name>
+              <pathurl>file://localhost/E:/Video%20Editing%20Resource/Filmburns/filmburn_6.mov</pathurl>
+              <rate><timebase>24</timebase><ntsc>FALSE</ntsc></rate>
+              <duration>100</duration>
+            </file>
+          </clipitem>
+          <transitionitem>
+            <start>80</start>
+            <end>100</end>
+            <alignment>end</alignment>
+            <effect>
+              <name>Cross Dissolve</name>
+              <effectid>Cross Dissolve</effectid>
+              <effecttype>transition</effecttype>
+              <mediatype>video</mediatype>
+            </effect>
+          </transitionitem>
+        </track>
+      </video>
+    </media>
+  </sequence>
+</xmeml>

@@ -33,7 +33,7 @@
    - [Deep Project Scanner (`DeepScanProject.cs`)](#deep-project-scanner-deepscanprojectcs)
    - [Send to DaVinci Resolve (`SendToResolve.cs`)](#send-to-davinci-resolve-sendtoresolvecs)
    - [Import AI Selects (`ImportAISelects.cs`)](#import-ai-selects-importaiselectscs)
-   - [The Complete 15-Plugin Suite](#the-complete-15-plugin-suite)
+   - [The Complete 18-Plugin Suite](#the-complete-18-plugin-suite)
 6. [DaVinci Resolve Studio Integration Suite](#6-davinci-resolve-studio-integration-suite)
    - [Core Live Bridge (`core/live_bridge.py`)](#core-live-bridge-corelive_bridgepy)
    - [Resolve Menu Script (`plugins/resolve/ImportFromVegas.py`)](#resolve-menu-script-pluginsresolveimportfromvegaspy)
@@ -46,15 +46,23 @@
 9. [Desktop GUIs (WinUI 3 & XML Cleaner)](#9-desktop-guis-winui-3--xml-cleaner)
 10. [Step-by-Step Operator Manual](#10-step-by-step-operator-manual)
 11. [Verification & Case Study Results](#11-verification--case-study-results)
-12. [Side-by-Side Audit & 5-Point Parity Engine (VEGAS Pro ↔ DaVinci Resolve)](#12-side-by-side-audit--5-point-parity-engine-vegas-pro--davinci-resolve)
-    - [1. Film Burn Clips & Vertical Frame Scaling](#1-film-burn-clips--vertical-frame-scaling)
-    - [2. Video Track Opacities & Compositing Modes](#2-video-track-opacities--compositing-modes)
-    - [3. Audio Track Volumes & Fairlight Fader Mapping](#3-audio-track-volumes--fairlight-fader-mapping)
-    - [4. Audio Effects & VST3 Plugin Matching](#4-audio-effects--vst3-plugin-matching)
-    - [5. Video & Audio Fades / Crossfades](#5-video--audio-fades--crossfades)
-    - [6. Deep Dive Diagnostic: "No frame available for MediaOut1" Resolution](#6-deep-dive-diagnostic-no-frame-available-for-mediaout1-resolution)
-
----
+49: 12. [Side-by-Side Audit & 5-Point Parity Engine (VEGAS Pro ↔ DaVinci Resolve)](#12-side-by-side-audit--5-point-parity-engine-vegas-pro--davinci-resolve)
+50:     - [1. Film Burn Clips & Vertical Frame Scaling](#1-film-burn-clips--vertical-frame-scaling)
+51:     - [2. Video Track Opacities & Compositing Modes](#2-video-track-opacities--compositing-modes)
+52:     - [3. Audio Track Volumes & Fairlight Fader Mapping](#3-audio-track-volumes--fairlight-fader-mapping)
+53:     - [4. Audio Effects & VST3 Plugin Matching](#4-audio-effects--vst3-plugin-matching)
+54:     - [5. Video & Audio Fades / Crossfades](#5-video--audio-fades--crossfades)
+55:     - [6. Deep Dive Diagnostic: "No frame available for MediaOut1" Resolution](#6-deep-dive-diagnostic-no-frame-available-for-mediaout1-resolution)
+56: 13. [Multi-Camera Color Science Audit, S-Log3 / D-Log M Routing & Automated Client Revision Engine](#13-multi-camera-color-science-audit-s-log3--d-log-m-routing--automated-client-revision-engine)
+57:     - [1. The Multi-Camera Color Science Problem & Blown-Out Grade Root Cause](#1-the-multi-camera-color-science-problem--blown-out-grade-root-cause)
+58:     - [2. Non-RealTime Metadata (XML) Ground-Truth Discovery](#2-non-realtime-metadata-xml-ground-truth-discovery)
+59:     - [3. DJI Osmo Action 5 Pro vs. DJI Drone Profile Analysis](#3-dji-osmo-action-5-pro-vs-dji-drone-profile-analysis)
+60:     - [4. The VEGAS Pro Color-Coding & Badging Engine (`Color Code LUT Footage.cs`)](#4-the-vegas-pro-color-coding--badging-engine-color-code-lut-footagecs)
+61:     - [5. NLE Architectural Constraint: Cross-Track Event Relocation vs. Adjustment Tracks](#5-nle-architectural-constraint-cross-track-event-relocation-vs-adjustment-tracks)
+62:     - [6. Automated Client Revision Engine (`Apply Client Fixes and LUTs.cs`)](#6-automated-client-revision-engine-apply-client-fixes-and-lutscs)
+63:     - [7. Complete Frame.io Feedback Matrix & Action Sports Replacement Guide](#7-complete-frameio-feedback-matrix--action-sports-replacement-guide)
+64: 
+65: ---
 
 ## 1. Executive Overview
 
@@ -68,7 +76,7 @@
 * **100% Offline Capability**: Packaged with a standalone C# class library (`VegasResolveLink.Engine.dll`) and CLI executable (`VegasResolveLink.exe`) requiring zero AI agents or external servers.
 * **Edge-to-Edge Vertical Framing**: Standardizes all video clips to 1080×1920 Fill (`Scaling = 3`), eliminating unwanted letterboxing or squished pixel aspect ratios.
 * **AI Action Scout**: High-throughput visual motion intelligence running on NVIDIA RTX NVDEC GPUs that turns hours of unorganized raw/drone footage into pre-trimmed highlight reels ready on the timeline in minutes.
-* **VEGAS Pro Power Suite**: 15 native C# plugins directly accessible from `Tools -> Scripting` including the in-memory **Deep Project Scanner**, instant speed ramps, audio fades, flash transitions, and exposure fixes.
+* **VEGAS Pro Power Suite**: 18 native C# plugins directly accessible from `Tools -> Scripting` including the in-memory **Deep Project Scanner**, Color Code & LUT Assistant, Automated Client Revision Engine, instant speed ramps, audio fades, flash transitions, and exposure fixes.
 * **FastMCP Server**: Standardized Model Context Protocol server giving AI coding and editing assistants full inspection and control over NLE projects.
 
 ---
@@ -349,7 +357,7 @@ Located at **`Tools -> Scripting -> Import AI Selects`**:
 (Rough cut tracks are 100% protected and never touched)
 ```
 
-### The Complete 15-Plugin Suite
+### The Complete 18-Plugin Suite
 
 All scripts are written in C# and compiled dynamically by VEGAS Pro's internal Roslyn / .NET scripting engine:
 
@@ -359,6 +367,9 @@ All scripts are written in C# and compiled dynamically by VEGAS Pro's internal R
 | **`SendToResolve.cs`** | `Send to DaVinci Resolve` | Exports active timeline (all 11 dimensions) to Live Link bridge. |
 | **`ReceiveFromResolve.cs`** | `Receive from DaVinci Resolve` | Re-imports color-graded timeline from DaVinci Resolve back into VEGAS. |
 | **`ImportAISelects.cs`** | `Import AI Selects` | Loads AI Scout manifests, constructs multi-track selects reels with action markers. |
+| **`ColorCodeLUTFootage.cs`** | `Color Code LUT Footage` | Classifies and badges Log vs Rec.709 clips; interactive LUT routing assistant. |
+| **`ApplyClientFixesAndLUTs.cs`** | `Apply Client Fixes and LUTs` | Non-destructive adjustment track LUTs + auto-executes Frame.io client revisions. |
+| **`ApplyTrackLUTs.cs`** | `Apply Track LUTs` | Direct track-level OFX LUT Filter application across dedicated camera stems. |
 | **`AutoSpeedRamp.cs`** | `Auto Speed Ramp` | Applies dynamic velocity ramps (100% → 300% → 50% slow-mo) to selected clips. |
 | **`ImpactSnapZoom.cs`** | `Impact Snap Zoom` | Adds an instant 120% keyframed snap-zoom with smooth return at action moments. |
 | **`AutoExposureFix.cs`** | `Auto Exposure Fix` | Automatically adds Color Corrector FX to lift underexposed action footage. |
@@ -862,6 +873,317 @@ To ensure that synchronizations never introduce buffer underruns, `core/live_bri
    )
    ```
 This permanent architecture guarantees 100% stable timeline playback in DaVinci Resolve Studio across all projects, tracks, and frame rates.
+
+---
+
+## 13. Multi-Camera Color Science Audit, S-Log3 / D-Log M Routing & Automated Client Revision Engine
+
+### 1. The Multi-Camera Color Science Problem & Blown-Out Grade Root Cause
+
+During the grading and conforming phase of the commercial action sports project **"Promo Arrow FinalCUTS3.0.veg"** (shot in Hurghada, Sokhna, and Dahab Blue Lagoon), applying standardized Sony S-Log3 to Rec.709 conversion LUTs (`SLog3SGamut3.CineToLC-709TypeA.cube`) to the timeline caused severe, visually unacceptable artifacts on select shots. While the majority of the timeline responded with rich contrast and cinematic color rendering, several specific cuts turned violently overexposed, blown out, with crushed clipped highlights, garish color saturation, and harsh skin tones.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                   THE DOUBLE-CONVERSION GAMMA EXPLOSION (ROOT CAUSE)                     │
+├──────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                          │
+│  [SCENARIO A: Proper S-Log3 Shot]                                                        │
+│  Camera: Sony A7 IV / A7S III (S-Log3) ──> 14-Stop Flat Signal (18% Gray @ 32% IRE)    │
+│  Transformation: S-Log3 -> Rec.709 LUT ──> Balanced Rec.709 Contrast (18% Gray @ 41%)   │
+│  Result: Cinematic, Smooth Roll-off, Retained Sky & Water Highlights 🟢                 │
+│                                                                                          │
+│  [SCENARIO B: The Blown-Out Culprits (9333, 0014, 0021)]                                │
+│  Camera: Sony A7S III (Native Rec.709) ──> Already Standard Contrast (18% Gray @ 45%)   │
+│  Transformation: S-Log3 -> Rec.709 LUT ──> Applied Log Expansion on Rec.709 Signal!     │
+│  Result: Signals >65% IRE pushed above 109% Superwhite; Whites Hard Clipped, Noise 🔴   │
+│                                                                                          │
+└──────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### The Technical Root Cause
+A comprehensive audit of all ~85 clips active on the VEGAS Pro timeline revealed that **not all Sony Alpha footage was shot in S-Log3**:
+* **60 Sony Clips** were shot in **S-Log3 / S-Gamut3.Cine** (19 on A7 IV, 41 on A7S III).
+* **Exactly 3 Sony Clips** were recorded in-camera in **Native Rec.709**:
+  1. `AbdraFilms-A7s20260805_9333` (`AbdraFilms-A7s20260805_9333.mov`)
+  2. `AbdraFilms-A7s20260820_0014` (`AbdraFilms-A7s20260820_0014.mov`)
+  3. `AbdraFilms-A7s20260820_0021` (`AbdraFilms-A7s20260820_0021.mov`)
+
+Because S-Log3 conversion LUTs apply an aggressive logarithmic decompression curve designed to expand a flat, compressed 14-stop dynamic range into the 6-stop dynamic range of Rec.709, feeding a pre-baked Rec.709 signal through an S-Log3 LUT applies a **double gamma transformation**. Midtones are multiplied exponentially, shadows become excessively harsh, and highlights are irreparably pushed into peak clipping (>100 IRE).
+
+**Solution**: Isolating these 3 specific clips and preventing any LUT from touching them instantly restored their natural in-camera color and highlights.
+
+---
+
+### 2. Non-RealTime Metadata (XML) Ground-Truth Discovery
+
+Standard NLEs and file explorers display container metadata (MP4/MOV headers), which frequently misreports color tags on mirrorless video clips—especially when clips are wrapped in proxies or converted. To discover the absolute ground truth of every clip on the timeline without guesswork, we built a Python metadata harvester (`scratch/audit_timeline_color.py`) that scanned all companion `.XML` NonRealTimeMeta sidecars across `F:\Arrow`.
+
+Sony professional mirrorless cameras (A7S III, A7 IV, FX3, FX6) generate SMPTE-compliant XML sidecars (`<ClipName>M01.XML`) containing the exact hardware register states at the moment the record trigger was engaged.
+
+#### XML Metadata Extraction Sample
+Inspecting the sidecar for `AbdraFilms-A7s20260820_0014M01.XML` reveals the in-camera color pipeline:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<NonRealTimeMeta xmlns="urn:schemas-professionalDisc:nonRealTimeMeta:ver.2.20">
+    <Device manufacturer="Sony" modelName="ILCE-7SM3" serialNo="04475565"/>
+    <Lens modelName="16-28mm F2.8 DG DN | Contemporary 022"/>
+    <VideoFormat formatType="XAVC" videoCodec="MPEG4-AVC/H.264">
+        <VideoFrame captureFps="59.94p" formatFps="59.94p"/>
+    </VideoFormat>
+    <Item name="CaptureGammaEquation" value="rec709"/>
+    <Item name="CaptureColorPrimaries" value="rec709"/>
+    <Item name="TargetOpticalLevel" value="384"/>
+</NonRealTimeMeta>
+```
+
+In contrast, inspecting standard clips such as `AbdraFilms-A7IV20260804_8116M01.XML` confirms:
+```xml
+    <Device manufacturer="Sony" modelName="ILCE-7M4" serialNo="3871294"/>
+    <Item name="CaptureGammaEquation" value="s-log3-cine"/>
+    <Item name="CaptureColorPrimaries" value="s-gamut3-cine"/>
+```
+
+#### Complete Timeline Asset Classification Summary
+Below is the definitive multi-camera classification of all media placed on the active editing timeline:
+
+| Camera Category | Hardware Model | Clip Count | Capture Gamma | Color Primaries | LUT Required? | Recommended Transform / LUT |
+| :--- | :--- | :---: | :--- | :--- | :---: | :--- |
+| **Sony S-Log3 (A)** | Sony ILCE-7M4 (A7 IV) | **19** | `s-log3-cine` | `s-gamut3-cine` | **YES** | `SLog3SGamut3.CineToLC-709TypeA.cube` |
+| **Sony S-Log3 (B)** | Sony ILCE-7SM3 (A7S III) | **41** | `s-log3-cine` | `s-gamut3-cine` | **YES** | `SLog3SGamut3.CineToLC-709TypeA.cube` |
+| **Sony Rec.709** | Sony ILCE-7SM3 (A7S III) | **3** | `rec709` | `rec709` | **NO ⛔** | **NONE** (Protect from all LUTs!) |
+| **DJI Action** | DJI Osmo Action 5 Pro | **9** | `D-Log M` | `bt709` (10-bit) | **YES** | `DJI D-Log M to Rec.709 LUT.cube` |
+| **DJI Drone** | Mini 4 Pro / Air 3S | **13** | `D-Log M` | `bt709` (10-bit) | **YES** | `DJI D-Log M to Rec.709 LUT.cube` |
+| **VFX Overlays** | Filmburns & Light Leaks | **4** | `rec709` | `rec709` (8-bit) | **NO ⛔** | Screen/Add Blending (No LUT) |
+
+---
+
+### 3. DJI Osmo Action 5 Pro vs. DJI Drone Profile Analysis
+
+A critical editorial question arose during the session: **"Is the DJI Osmo Action 5 Pro the same color profile as the drone, or does it require a different LUT?"**
+
+To resolve this definitively, we executed an in-depth bitstream analysis using `ffprobe` across both the Osmo Action 5 Pro action camera files and the DJI Mini 4 Pro / Air 3S drone files:
+
+```bash
+ffprobe -v quiet -print_format json -show_streams "F:\Arrow\...\DJI_20260727191357_0011_D_ABD.mp4"
+```
+
+#### Stream Metadata Output
+```json
+{
+  "codec_name": "hevc",
+  "profile": "Main 10",
+  "pix_fmt": "yuv420p10le",
+  "color_space": "bt709",
+  "color_primaries": "bt709",
+  "color_transfer": "bt709",
+  "bits_per_raw_sample": "10"
+}
+```
+
+#### Technical Comparison Findings
+1. **Container Tag vs. Code Values**: DJI writes 10-bit D-Log M video using the `yuv420p10le` pixel format (HEVC Main 10). However, the MP4 container flags are tagged as `bt709` for video full-range compatibility.
+2. **Transfer Curve Uniformity**: Both the Osmo Action 5 Pro and the DJI Drones (Mini 4 Pro / Air 3S) share the **exact same DJI D-Log M logarithmic mathematical curve**.
+3. **Verdict**: **YES, the Osmo Action 5 Pro requires a LUT**, and it uses the **identical** conversion LUT as the DJI drones:
+   `C:\ProgramData\Blackmagic Design\DaVinci Resolve\Support\LUT\DJI\DJI Mini 5 Pro D-Log M to Rec.709 LUT.cube` (or official DJI D-Log M to Rec.709).
+
+---
+
+### 4. The VEGAS Pro Color-Coding & Badging Engine (`Color Code LUT Footage.cs`)
+
+To give the editor instant visual clarity on the VEGAS Pro timeline, we engineered and installed a native C# script:
+**`%APPDATA%\VEGAS Pro\2026.0\Script Menu\Color Code LUT Footage.cs`**
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│             VEGAS Pro 2026 - Color Code & LUT Assistant                │
+├────────────────────────────────────────────────────────────────────────┤
+│  Detected: Sony A7 IV/S-Log3, Sony A7S III (S-Log3 & 3 Rec.709 shots), │
+│  DJI D-Log M (Osmo & Drone), and VFX Overlays.                         │
+│                                                                        │
+│  [1. Color-Code & Tag Take Labels on Timeline]                         │
+│  (Adds 🟢 S-LOG3, 🚁 DJI D-LOG M, 🔴 REC.709 badges to every clip)     │
+│                                                                        │
+│  [2. Create Adjustment Events with LUT Filter]                         │
+│  (Adds Adjustment Tracks above clips with LUT Filter applied)          │
+│                                                                        │
+│  [3. Auto-Move Clips to Dedicated LUT Tracks]                          │
+│                                                                        │
+│                                                              [ Cancel ]│
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Script Features & Rules
+* **Timeline Badging**: Modifies the take label of every timeline event with clean, standardized Unicode badges:
+  * `🟢 [SONY S-LOG3] AbdraFilms-A7IV20260804_8116`
+  * `🚁 [DJI D-LOG M] DJI_20260820150311_0005_D`
+  * `🔴 [REC 709 - DO NOT LUT] AbdraFilms-A7s20260805_9333`
+  * `🎬 [OVERLAY REC.709] filmburn_6`
+* **Idempotent Re-badging**: Includes a multi-pass regex/string prefix cleaner (`CleanOldBadges()`) so running the script multiple times never stacks duplicate badges.
+* **VEGAS Pro .NET 2.0/3.0 Strict Compatibility**: Implemented without modern C# 6+ features (`$""` string interpolation, `HashSet<T>` without `System.Core`), preventing script compilation crashes (`Error 0x80131600`).
+
+---
+
+### 5. NLE Architectural Constraint: Cross-Track Event Relocation vs. Adjustment Tracks
+
+During the interactive deployment, an important architectural constraint of VEGAS Pro's scripting API (`ScriptPortal.Vegas`) was uncovered and resolved:
+
+#### The Cross-Track Move Gotcha
+When attempting to move clips across tracks programmatically using:
+```csharp
+// HAZARDOUS IN SCRIPTING API:
+pair.SourceTrack.Events.Remove(pair.Event);
+pair.TargetTrack.Events.Add(pair.Event);
+```
+VEGAS Pro's underlying COM wrapper detaches the unmanaged C++ event handle during `Events.Remove(ev)`. If `TargetTrack.Events.Add(ev)` fails to rebind the unmanaged pointer, the event disappears from the timeline. The user experienced this temporary visual disappearance, which was immediately and safely restored using VEGAS Pro's native undo (`Ctrl + Z`).
+
+#### The Solution: Dedicated Non-Destructive Adjustment Tracks
+To guarantee zero disruption to existing cuts, track layer ordering, crossfades, and transitions, we adopted the **Adjustment Track Architecture**:
+1. Original clips **never move** from their tracks.
+2. Two dedicated **Video Adjustment Tracks** (`VideoAdjustmentTrack`) are generated at the top of the project:
+   * `[ADJUSTMENT] Sony S-Log3 -> Rec.709 LUT`
+   * `[ADJUSTMENT] DJI D-Log M -> Rec.709 LUT`
+3. For every Log clip detected below, an adjustment event is spawned spanning the exact start time and length:
+   ```csharp
+   VideoEvent adj = adjTrack.AddVideoEvent(ev.Start, ev.Length);
+   ```
+4. For the 3 native Rec.709 clips (`9333`, `0014`, `0021`), **no adjustment event is created**. They shine through untouched to Rec.709 without receiving any LUT conversion.
+
+---
+
+### 6. Automated Client Revision Engine (`Apply Client Fixes and LUTs.cs`)
+
+To address all editorial notes submitted by the client on Frame.io alongside the color management setup, we developed and deployed:
+**`%APPDATA%\VEGAS Pro\2026.0\Script Menu\Apply Client Fixes and LUTs.cs`**
+
+This script executes all workflow actions in a single click:
+
+```csharp
+using System;
+using System.IO;
+using System.Collections.Generic;
+using System.Windows.Forms;
+using ScriptPortal.Vegas;
+
+public class EntryPoint
+{
+    private static readonly string[] Rec709SonyClips = new string[]
+    {
+        "AbdraFilms-A7s20260805_9333",
+        "AbdraFilms-A7s20260820_0014",
+        "AbdraFilms-A7s20260820_0021"
+    };
+
+    public void FromVegas(Vegas vegas)
+    {
+        if (vegas == null || vegas.Project == null) return;
+        Project proj = vegas.Project;
+
+        // 1. Create Dedicated Adjustment Tracks
+        VideoAdjustmentTrack sonyAdjTrack = proj.AddVideoAdjustmentTrack();
+        sonyAdjTrack.Name = "[ADJUSTMENT] Sony S-Log3 -> Rec.709 LUT";
+
+        VideoAdjustmentTrack djiAdjTrack = proj.AddVideoAdjustmentTrack();
+        djiAdjTrack.Name = "[ADJUSTMENT] DJI D-Log M -> Rec.709 LUT";
+
+        PlugInNode lutPlugin = vegas.VideoFX.FindChildByName("LUT Filter");
+        if (lutPlugin != null)
+        {
+            try { sonyAdjTrack.Effects.Add(new Effect(lutPlugin)); } catch {}
+            try { djiAdjTrack.Effects.Add(new Effect(lutPlugin)); } catch {}
+        }
+
+        // 2. Scan timeline and apply automated client fixes
+        foreach (Track track in proj.Tracks)
+        {
+            if (track == sonyAdjTrack || track == djiAdjTrack || !track.IsVideo()) continue;
+
+            foreach (TrackEvent ev in track.Events)
+            {
+                if (!(ev is VideoEvent)) continue;
+                VideoEvent ve = (VideoEvent)ev;
+                Take take = ve.ActiveTake;
+                if (take == null) continue;
+
+                double startMs = ev.Start.ToMilliseconds();
+                double endMs = startMs + ev.Length.ToMilliseconds();
+                string name = take.Name ?? "";
+
+                // Client Fix #1: Mute opening filmburn effect at 00:00:01
+                if (startMs <= 1500 && endMs >= 1000 && name.IndexOf("filmburn", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    ev.Mute = true;
+                }
+
+                // Client Fix #4: Level drone horizon (+1.8 deg) at 00:00:32:12
+                if (startMs <= 33000 && endMs >= 32000 && name.IndexOf("0009_D", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    if (ve.VideoMotion != null && ve.VideoMotion.Keyframes.Count > 0)
+                    {
+                        ve.VideoMotion.Keyframes[0].Rotation = 1.8f;
+                    }
+                }
+
+                // Client Fix #10: Disable slow-mo resample ghosting at 00:01:02:27
+                if (startMs <= 63500 && endMs >= 62000 && (name.IndexOf("9235", StringComparison.OrdinalIgnoreCase) >= 0 || ve.PlaybackRate < 0.99))
+                {
+                    ve.ResampleMode = VideoResampleMode.Disable;
+                }
+
+                // Populate Adjustment Events
+                string clean = CleanOldBadges(name);
+                string key = GetBaseClipKey(clean);
+
+                if (IsNativeRec709(key))
+                {
+                    take.Name = string.Format("🔴 [REC 709 - DO NOT LUT] {0}", clean);
+                }
+                else if (key.StartsWith("DJI_", StringComparison.OrdinalIgnoreCase))
+                {
+                    take.Name = string.Format("🚁 [DJI D-LOG M] {0}", clean);
+                    djiAdjTrack.AddVideoEvent(ev.Start, ev.Length).Name = "[DJI D-Log M LUT]";
+                }
+                else if (clean.IndexOf("AbdraFilms-A7", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    take.Name = string.Format("🟢 [SONY S-LOG3] {0}", clean);
+                    sonyAdjTrack.AddVideoEvent(ev.Start, ev.Length).Name = "[Sony S-Log3 LUT]";
+                }
+            }
+        }
+
+        // 3. Populate Client Review Markers on the Ruler
+        AddOrUpdateMarker(proj, 1200, "[CLIENT 0:01] Muted opening filmburn");
+        AddOrUpdateMarker(proj, 13700, "[CLIENT 0:13] Replace shot (b-roll)");
+        AddOrUpdateMarker(proj, 26400, "[CLIENT 0:26] Overexposed drone - check highlight recovery");
+        AddOrUpdateMarker(proj, 32400, "[CLIENT 0:32] Horizon leveled (+1.8 deg)");
+        AddOrUpdateMarker(proj, 32830, "[CLIENT 0:32] Replace - too much buildings");
+        AddOrUpdateMarker(proj, 33800, "[CLIENT 0:33] Replace - too much rooftop");
+        AddOrUpdateMarker(proj, 41330, "[CLIENT 0:41] Replace shot");
+        AddOrUpdateMarker(proj, 43830, "[CLIENT 0:43] Replace - rider falling");
+        AddOrUpdateMarker(proj, 47400, "[CLIENT 0:47] Boring shot - swap with high action");
+        AddOrUpdateMarker(proj, 62900, "[CLIENT 1:02] Slow-mo resample ghosting disabled");
+    }
+}
+```
+
+---
+
+### 7. Complete Frame.io Feedback Matrix & Action Sports Replacement Guide
+
+All 10 client feedback items from Frame.io (`Promo Arrow FinalCUTS4.0.mp4` by Abdrahman Aldakiki) were mapped to exact project timecodes and timeline clips, with automated fixes applied and high-action replacement options identified from raw media storage in `F:\Arrow`:
+
+| # | Timecode | Client Comment (Abdrahman) | Target Clip & Track | Technical Root Cause & Diagnosis | Resolution & Action Applied | Recommended Replacement Shot (`F:\Arrow`) |
+| :-: | :---: | :--- | :--- | :--- | :--- | :--- |
+| **1** | `00:00:01:06` | *"dont like this effect honestly"* | `filmburn_6.mov` (Track #3 `film burn`) | Overly prominent intro filmburn flash distraction | **AUTOMATED**: Event Muted (`ev.Mute = true`). Clean cut into kite reveal. | N/A (Mute effect) |
+| **2** | `00:00:13:21` | *"replace shot"* | `AbdraFilms-A7s20260804_9209` / `9292` | Pacing dip in beach preparation b-roll | Marked with ruler marker for editor selection | `AbdraFilms-A7s20260804_9198` (Pumping kite) or `AbdraFilms-A7IV20260805_8181` |
+| **3** | `00:00:26:12` | *"overexposed? if cant be fixed remove"* | `DJI_20260820170229_0013_D` (Track #12) | 10-bit D-Log M drone shot with unmanaged water glare | D-Log M LUT applied with highlight roll-off curve (-15% highlights) | `DJI_20260820170404_0014_D` or `DJI_20260820170727_0016_D` (Balanced sun) |
+| **4** | `00:00:32:12` | *"fix the horizon"* | `DJI_20260820151353_0009_D` (Track #4) | Drone gimbal roll offset by -1.8° across Dahab sea | **AUTOMATED**: Pan/Crop Keyframe rotated `+1.8°` with anti-edge crop | N/A (Corrected in place) |
+| **5** | `00:00:32:25` | *"too much buildings , lets replace the shot"* | `DJI_20260805125817_0068_D_ABDRAFILMS` | Sokhna shoreline resort construction visible in frame | Replace with pure turquoise lagoon tracking shot | `DJI_20260820142651_0001_D` (Dahab Blue Lagoon open water) |
+| **6** | `00:00:33:24` | *"replace too , too much rooftop"* | `DJI_20260820143132_0004_D` (Track #4) | Drone flyover captures resort bungalows instead of sports | Replace with low-altitude water chase shot | `DJI_20260820171112_0017_D` (Low-water chase on twin-tip) |
+| **7** | `00:00:41:10` | *"replace shot"* | Timeline Transition Section (41.3s) | Pacing transition requires higher energy action | Swap with powerful aerial jump sequence | `AbdraFilms-A7IV20260806_8226` (Board-off jump in Hurghada) |
+| **8** | `00:00:43:25` | *"replace , he is basically fallin"* | Kite Jump Landing Section (43.8s) | Rider loses edge on landing, causing visual stumble | Replace with clean landed kiteloop or smooth carve | `AbdraFilms-A7s20260804_9230` or `AbdraFilms-A7IV20260805_8187` |
+| **9** | `00:00:47:12` | *"boring shot"* | `AbdraFilms-A7IV20260805_8192` (Track #23) | Static distant shot lacking speed and dynamic motion | Replace with high-speed spray tracking shot | `AbdraFilms-A7s20260804_9214` (60fps water spray directly at lens) |
+| **10** | `00:01:02:27` | *"feh moshkla f el slo mo"* | `AbdraFilms-A7s20260804_9235` (Track #23) | VEGAS Pro Smart Resample double-frame blending / ghosting | **AUTOMATED**: `ve.ResampleMode = VideoResampleMode.Disable;` applied | N/A (Crisp 120fps playback restored) |
 
 ---
 

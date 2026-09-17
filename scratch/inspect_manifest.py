@@ -1,13 +1,20 @@
-import json
-import os
+import sys
+sys.path.insert(0, r"c:\Users\Mi5a\VegasDavinciLinkTool")
+from core.live_bridge import load_manifest_json
 from pathlib import Path
 
-json_path = r"C:\Users\Mi5a\.timeline_bridge\vegas_timeline.json"
-with open(json_path, "r", encoding="utf-8-sig") as f:
-    data = json.load(f)
+p = Path.home() / '.timeline_bridge' / 'vegas_timeline.json'
+d = load_manifest_json(str(p))
 
-print("Project Name:", data.get("project_name"))
-print("FPS:", data.get("frame_rate"))
-print("Tracks count:", len(data.get("tracks", [])))
-for i, t in enumerate(data.get("tracks", [])):
-    print(f"Track {i+1:2d}: {t.get('name', 'unnamed'):35s} | video={str(t.get('is_video')):5s} | clips={len(t.get('clips', []))}")
+print("=== ALL MARKERS ===")
+for m in d.get('markers', []):
+    pos = m.get('position_ms', 0)
+    print(f"Marker {m.get('index')}: '{m.get('name')}' at {pos}ms ({pos/1000.0:.2f}s) tc={m.get('timecode')}")
+
+print("\n=== CLIPS AT 38s - 48s ===")
+for t in d.get('tracks', []):
+    tm = t.get('track_motion')
+    if tm:
+        print(f"Track {t.get('index')}: '{t.get('name')}' -> track_motion: {tm}")
+    else:
+        print(f"Track {t.get('index')}: '{t.get('name')}' (no track_motion)")

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "vegas-resolve": {
+      "command": "python",
+      "args": ["c:\\Users\\Mi5a\\VegasDavinciLinkTool\\run_mcp.py"]
+    }
+  }
+}

@@ -28,3 +28,13 @@ desktop.ini
 # Test artifacts
 tests/output/
 *.pyc
+
+# Temporary scratch stills & binaries
+scratch/*.jpg
+scratch/*.png
+scratch/scout/
+scratch/scout_*/
+scratch/stills/
+scratch/*.dll
+scratch/*.exe
+plugins/vegas/*.dll

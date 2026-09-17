@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Windows.Forms;
 using ScriptPortal.Vegas;
 
@@ -249,8 +250,24 @@ public class EntryPoint
                     double cropTop = 0.0;
                     double cropBottom = 0.0;
                     List<string> motionKfList = new List<string>();
-
                     VideoEvent ve = ev as VideoEvent;
+
+                    // Extract Velocity Envelope (variable speed ramps)
+                    List<string> velocityPoints = new List<string>();
+                    if (ve != null && ve.Envelopes != null && ve.Envelopes.HasEnvelope(EnvelopeType.Velocity))
+                    {
+                        Envelope velEnv = ve.Envelopes.FindByType(EnvelopeType.Velocity);
+                        if (velEnv != null && velEnv.Points.Count > 0)
+                        {
+                            foreach (EnvelopePoint pt in velEnv.Points)
+                            {
+                                velocityPoints.Add(string.Format(CultureInfo.InvariantCulture,
+                                    "{{\"position_ms\": {0:F2}, \"speed\": {1:F4}, \"curve\": \"{2}\"}}",
+                                    pt.X.ToMilliseconds(), pt.Y, pt.Curve.ToString()));
+                            }
+                        }
+                    }
+
                     if (ve != null && ve.VideoMotion != null && ve.VideoMotion.Keyframes.Count > 0)
                     {
                         VideoMotionKeyframe kf = ve.VideoMotion.Keyframes[0];
@@ -312,7 +329,7 @@ public class EntryPoint
                             else if (defCropW > 1.0)
                             {
                                 double computedZoom = defCropW / bw;
-                                if (Math.Abs(computedZoom - 1.0) > 0.03)
+                                if (Math.Abs(computedZoom - 1.0) > 0.03 && Math.Abs(computedZoom - 0.5625) > 0.03)
                                 {
                                     zoomX = computedZoom;
                                     zoomY = computedZoom;
@@ -324,6 +341,10 @@ public class EntryPoint
                         {
                             double shiftX = kf.Center.X - defCenterX;
                             double shiftY = kf.Center.Y - defCenterY;
+
+                            // Filter out false aspect-ratio offset artifact (-420px on vertical projects)
+                            if (Math.Abs(Math.Abs(shiftX) - 420.0) < 15.0) shiftX = 0.0;
+                            if (Math.Abs(Math.Abs(shiftY) - 420.0) < 15.0) shiftY = 0.0;
 
                             // Only assign pan if user explicitly offset center from default
                             if (Math.Abs(shiftX) > 10.0 && defCropW > 1.0)
@@ -354,7 +375,8 @@ public class EntryPoint
                                     }
                                     else if (defCropW > 1.0)
                                     {
-                                        kfZoom = defCropW / kbw;
+                                        double cz = defCropW / kbw;
+                                        if (Math.Abs(cz - 0.5625) > 0.03) kfZoom = cz;
                                     }
                                 }
 
@@ -362,6 +384,8 @@ public class EntryPoint
                                 {
                                     double ksx = mkf.Center.X - defCenterX;
                                     double ksy = mkf.Center.Y - defCenterY;
+                                    if (Math.Abs(Math.Abs(ksx) - 420.0) < 15.0) ksx = 0.0;
+                                    if (Math.Abs(Math.Abs(ksy) - 420.0) < 15.0) ksy = 0.0;
                                     if (Math.Abs(ksx) > 10.0 && defCropW > 1.0)
                                     {
                                         kfPanX = (ksx / defCropW) * vegas.Project.Video.Width;
@@ -414,6 +438,7 @@ public class EntryPoint
                     cb.AppendFormat("          \"group_id\": {0},\n", groupId);
                     cb.AppendFormat("          \"volume\": {0:F2},\n", eventVolume);
                     cb.AppendFormat("          \"motion_keyframes\": [{0}],\n", string.Join(", ", motionKfList.ToArray()));
+                    cb.AppendFormat("          \"velocity_points\": [{0}],\n", string.Join(", ", velocityPoints.ToArray()));
                     cb.AppendFormat("          \"effects\": [{0}],\n", string.Join(", ", eventFxList.ToArray()));
                     cb.AppendFormat("          \"mute\": {0}\n", ev.Mute ? "true" : "false");
                     cb.Append("        }");

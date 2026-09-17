@@ -23,6 +23,7 @@ from core.live_bridge import (
     get_current_project_info,
     import_timeline_from_json,
     export_timeline_to_json,
+    load_manifest_json,
 )
 from core.ai_scout import scout_directory, export_selects_manifest
 
@@ -43,8 +44,7 @@ def vegas_get_timeline_info() -> Dict[str, Any]:
         }
 
     try:
-        with open(json_path, "r", encoding="utf-8-sig") as f:
-            data = json.load(f)
+        data = load_manifest_json(str(json_path))
 
         tracks_summary = []
         total_clips = 0
@@ -109,8 +109,7 @@ def vegas_get_selects_manifest() -> Dict[str, Any]:
     if not manifest_path.exists():
         return {"status": "error", "message": "No AI selects manifest found. Run vegas_scout_footage first."}
 
-    with open(manifest_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    data = load_manifest_json(str(manifest_path))
 
     return {
         "status": "success",

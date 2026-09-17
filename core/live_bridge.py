@@ -482,6 +482,8 @@ def deploy_luts_to_resolve(data: dict, proj, log_fn=print) -> dict:
 
     # Search common locations and manifest references
     search_dirs = [
+        Path(__file__).parent.parent / "luts",
+        Path.cwd() / "luts",
         Path.home() / "Desktop" / "luts",
         Path.home() / "Desktop" / "LUTs",
         Path.home() / ".timeline_bridge" / "luts",
@@ -532,46 +534,10 @@ def deploy_luts_to_resolve(data: dict, proj, log_fn=print) -> dict:
 
 
 def apply_video_fade_to_item(item, fade_in_ms: float = 0.0, fade_out_ms: float = 0.0, fps: float = 24.0) -> bool:
-    """Apply non-destructive fade-in / fade-out to a video TimelineItem via native Fusion BrightnessContrast tool."""
-    dur = item.GetDuration()
-    if dur <= 1 or (fade_in_ms <= 0 and fade_out_ms <= 0):
-        return False
-    
-    comp = item.GetFusionCompByIndex(1) if item.GetFusionCompCount() > 0 else item.AddFusionComp()
-    if not comp:
-        return False
-    
-    tools = comp.GetToolList()
-    media_in, media_out, bc = None, None, None
-    for t in tools.values():
-        tname = t.GetAttrs().get('TOOLS_Name', '')
-        if 'MediaIn' in tname:
-            media_in = t
-        elif 'MediaOut' in tname:
-            media_out = t
-        elif 'BrightnessContrast' in tname:
-            bc = t
-    
-    if not media_in or not media_out:
-        return False
-    
-    if not bc:
-        bc = comp.AddTool("BrightnessContrast")
-        bc.ConnectInput("Input", media_in)
-        media_out.ConnectInput("Input", bc)
-    
-    gain = bc.Gain
-    if fade_in_ms > 0:
-        fin_frames = min(dur - 1, max(1, int(round((fade_in_ms / 1000.0) * fps))))
-        gain[0] = 0.0
-        gain[fin_frames] = 1.0
-    
-    if fade_out_ms > 0:
-        fout_frames = min(dur - 1, max(1, int(round((fade_out_ms / 1000.0) * fps))))
-        start_f = max(0, dur - fout_frames)
-        gain[start_f] = 1.0
-        gain[dur - 1] = 0.0
-    return True
+    """Disabled: Fusion BrightnessContrast tools without explicit Spline animation modifiers
+    cause static Gain=0.0 assignments that make clips disappear from the video timeline into pitch-black."""
+    return False
+
 
 
 def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
@@ -713,7 +679,13 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
     version = 2
     while timeline_name in existing_names:
         timeline_name = f"{base_name} {version}"
-        version += 1
+        version += 1    # Ensure project default timeline frame rate matches the VEGAS project before creating the timeline!
+    try:
+        proj.SetSetting("timelineFrameRate", str(fps))
+        proj.SetSetting("timelinePlaybackFrameRate", str(int(round(fps))))
+        log_fn(f"[OK] Configured project timeline frame rate to: {fps} fps")
+    except Exception as fps_err:
+        log_fn(f"[WARN] Project frame rate note: {fps_err}")
 
     timeline = mp.CreateEmptyTimeline(timeline_name)
     if not timeline:
@@ -722,7 +694,8 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
 
     proj.SetCurrentTimeline(timeline)
     tl_start = timeline.GetStartFrame() or 0
-    log_fn(f"[OK] Created timeline: '{timeline_name}' (StartFrame: {tl_start})")
+    tl_fps = float(timeline.GetSetting("timelineFrameRate") or fps)
+    log_fn(f"[OK] Created timeline: '{timeline_name}' (StartFrame: {tl_start}, FPS: {tl_fps})")
 
     try:
         timeline.SetSetting("useCustomSettings", "1")
@@ -757,36 +730,21 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
         "normal": 0,
         "add": 1,
         "subtract": 2,
-        "difference": 3,
-        "multiply": 4,
+        "multiply": 3,
         "screen": 5,
         "overlay": 6,
-        "hardlight": 7,
-        "softlight": 8,
-        "darken": 9,
-        "lighten": 10,
-        "colordodge": 11,
-        "colorburn": 12,
-        "exclusion": 13,
-        "hue": 14,
-        "saturation": 15,
-        "color": 16,
-        "luminosity": 17,
-        "lumamask": 17,
-        "divide": 18,
-        "lineardodge": 19,
-        "linearburn": 20,
-        "linearlight": 21,
-        "vividlight": 22,
-        "pinlight": 23,
-        "hardmix": 24,
-        "lightercolor": 25,
-        "darkercolor": 26,
-        "foreground": 27,
-        "alpha": 28,
-        "invertedalpha": 29,
-        "lum": 30,
-        "invertedlum": 31,
+        "darken": 7,
+        "lighten": 8,
+        "colordodge": 9,
+        "colorburn": 10,
+        "hardlight": 11,
+        "softlight": 12,
+        "difference": 13,
+        "exclusion": 14,
+        "hue": 15,
+        "saturation": 16,
+        "color": 17,
+        "luminosity": 18,
     }
 
     # Ensure timeline has sufficient video and audio tracks
@@ -805,7 +763,7 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
             else:
                 break
 
-        # Rename tracks to match VEGAS layout
+        # Rename tracks to match VEGAS layout and apply track mute status
         for t in tracks:
             tinfo = track_map.get(id(t))
             if tinfo:
@@ -814,6 +772,12 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
                 if tname and tidx <= timeline.GetTrackCount(ttype_str):
                     try:
                         timeline.SetTrackName(ttype_str, tidx, tname)
+                    except Exception:
+                        pass
+                if t.get("mute") and tidx <= timeline.GetTrackCount(ttype_str):
+                    try:
+                        timeline.SetTrackEnable(ttype_str, tidx, False)
+                        log_fn(f"[OK] Disabled muted track {ttype_str.upper()}{tidx} ('{tname}')")
                     except Exception:
                         pass
     except Exception as trk_err:
@@ -900,7 +864,7 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
             duration_src_frames = int(round((len_ms / 1000.0) * clip_fps * playback_rate))
             out_frame = in_frame + max(1, duration_src_frames)
 
-            start_frame = int(round((start_ms / 1000.0) * fps))
+            start_frame = int(round((start_ms / 1000.0) * tl_fps))
             record_frame = tl_start + start_frame
 
             clip_info = {
@@ -965,14 +929,13 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
                         # Guard against legacy aspect-ratio math artifacts:
                         # In Resolve, Scaling=3 (SCALE_FILL) already fits 9:16 vertical full-bleed.
                         # Normalize false pre-calculated zooms and centering offsets to full frame:
-                        if len(clip.get("motion_keyframes", [])) <= 1:
-                            if abs(zx - 0.3164) < 0.03 or abs(zx - 0.5625) < 0.03 or abs(zx - 0.176) < 0.03 or abs(zx - 0.092) < 0.03:
-                                zx = 1.0
-                                zy = 1.0
-                            if abs(abs(px) - 746.67) < 5.0 or abs(abs(px) - 420.0) < 5.0:
-                                px = 0.0
-                            if abs(abs(py) - 746.67) < 5.0 or abs(abs(py) - 420.0) < 5.0 or abs(abs(py) - 1327.4) < 5.0:
-                                py = 0.0
+                        if abs(zx - 0.3164) < 0.03 or abs(zx - 0.5625) < 0.03 or abs(zx - 0.176) < 0.03 or abs(zx - 0.092) < 0.03:
+                            zx = 1.0
+                            zy = 1.0
+                        if abs(abs(px) - 746.67) < 5.0 or abs(abs(px) - 420.0) < 5.0:
+                            px = 0.0
+                        if abs(abs(py) - 746.67) < 5.0 or abs(abs(py) - 420.0) < 5.0 or abs(abs(py) - 1327.4) < 5.0:
+                            py = 0.0
 
                         # Guard against default track motion division artifacts (e.g. 1080/1944 = 0.5555)
                         eff_tm_sx = tm_sx
@@ -1016,9 +979,9 @@ def import_timeline_from_json(json_path: str, log_fn=print) -> bool:
                             cname_lower = (clip.get("name") or "").lower()
                             tname_lower = track_name.lower()
                             if "dji" in tname_lower or "dji" in cname_lower:
-                                target_lut = "DJI Mini 4 Pro D-Log M to Rec.709 V1_.cube"
+                                target_lut = "Arrow_Vibrant_Turquoise_DJI_Drone.cube"
                             elif "a74" in tname_lower or "a7" in cname_lower or "abdrafilms-a7" in cname_lower:
-                                target_lut = "Pike_SL3_0-5_Skin1.cube"
+                                target_lut = "Arrow_Vibrant_Turquoise_Sony_A7.cube"
 
                         if target_lut and deployed_luts:
                             rel_lut_path = deployed_luts.get(target_lut.lower()) or deployed_luts.get(target_lut)

@@ -1,23 +1,44 @@
-import sys, os, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.path.append(r"C:\ProgramData\Blackmagic Design\DaVinci Resolve\Support\Developer\Scripting\Modules")
-os.environ["RESOLVE_SCRIPT_LIB"] = r"C:\Program Files\Blackmagic Design\DaVinci Resolve\fusionscript.dll"
-import DaVinciResolveScript as dvr
+import sys
+sys.path.insert(0, r'c:\Users\Mi5a\VegasDavinciLinkTool')
+from core.live_bridge import get_resolve_app
 
-resolve = dvr.scriptapp("Resolve")
-tl = resolve.GetProjectManager().GetCurrentProject().GetCurrentTimeline()
+resolve = get_resolve_app()
+proj = resolve.GetProjectManager().GetCurrentProject()
+tl = proj.GetCurrentTimeline()
 
-# Check all clips that are visible at frame 86400 (playhead at beginning)
-print("=== CLIPS AT TIMELINE START (FRAME 86400) ===")
-for v in range(1, tl.GetTrackCount('video') + 1):
-    items = tl.GetItemListInTrack('video', v) or []
+cur_tc = tl.GetCurrentTimecode()
+print(f"Current Timecode: {cur_tc}")
+
+# Convert timecode to frame
+# 01:00:00:00 = 86400 (at 24fps)
+# Let's compute frame from timecode
+parts = [int(x) for x in cur_tc.split(':')]
+frame = (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 24 + parts[3]
+print(f"Current frame: {frame}")
+
+print(f"\n--- Checking all tracks at frame {frame} ---")
+found_any = False
+for t_idx in range(tl.GetTrackCount('video'), 0, -1):
+    items = tl.GetItemListInTrack('video', t_idx) or []
     for it in items:
-        if it.GetStart() <= 86400 < it.GetEnd():
-            print(f"V{v} ({tl.GetTrackName('video', v)}): '{it.GetName()}' | [{it.GetStart()} - {it.GetEnd()}] | Comps: {it.GetFusionCompCount()}")
+        if it.GetStart() <= frame < it.GetEnd():
+            found_any = True
+            print(f"\nTrack V{t_idx} ({tl.GetTrackName('video', t_idx)}): Clip '{it.GetName()}' [Start={it.GetStart()}, End={it.GetEnd()}]")
+            for p in ['Pan', 'Tilt', 'ZoomX', 'ZoomY', 'RotationAngle', 'AnchorPointX', 'AnchorPointY', 'CompositeMode', 'Opacity', 'Scaling']:
+                try:
+                    val = it.GetProperty(p)
+                    print(f"    {p}: {val}")
+                except Exception as e:
+                    pass
+            mp = it.GetMediaPoolItem()
+            if mp:
+                cp = mp.GetClipProperty()
+                print(f"    MediaPool: Resolution={cp.get('Resolution')}, FPS={cp.get('FPS')}, Clip Name={cp.get('Clip Name')}")
             if it.GetFusionCompCount() > 0:
-                for cidx in range(1, it.GetFusionCompCount() + 1):
-                    comp = it.GetFusionCompByIndex(cidx)
-                    cname = it.GetFusionCompNameList()[cidx - 1] if cidx - 1 < len(it.GetFusionCompNameList()) else "comp"
-                    tools = comp.GetToolList()
-                    tnames = [t.GetAttrs().get('TOOLS_Name') for t in tools.values()]
-                    print(f"   Comp {cidx} ({cname}): tools = {tnames}")
+                print(f"    Fusion Comp Count: {it.GetFusionCompCount()}")
+                comp = it.GetFusionCompByIndex(1)
+                for tid, tool in comp.GetToolList().items():
+                    print(f"      Tool: {tool.GetAttrs().get('TOOLS_Name')} ({tool.GetAttrs().get('TOOLS_RegID')})")
+
+if not found_any:
+    print("NO CLIPS FOUND AT THIS FRAME! (Gap!)")
